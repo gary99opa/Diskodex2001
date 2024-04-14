@@ -1,0 +1,371 @@
+****************************************************************
+* MOV-S       v1.00.08/03/90  MOVE 9938 GAT! 3D SART BY O.P.A. *
+****************************************************************
+*                                                              *
+* Source Published: 04/11/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1990 by Gary Bowser from Oasis Pensive Abacutors *
+*                                                              *
+* Credit Must Be Given If Any Part Of This Source Code Is Used *
+*                                                              *
+****************************************************************
+       TITL 'MOVE 9938 GAT! 3D-SA by Gary Bowser'
+       IDT  'MOV v1.0'
+       DEF  SFIRST,START,SLAST
+       AORG >A050
+SFIRST EQU  $
+ 
+*************************************************************
+*0=Temp,X1           DEMOWS|8 =Changer Y2                   *
+*1=Temp,Y1                 |9 =Draw/Erase pointer           *
+*2=Temp,X2                 |10=Count from 4 to 1            *
+*3=Temp,Y2                 |11=Return address for BL'S      *
+*4=Line Color              |12=XY pointer                   *
+*5=Changer X1     DEMOWS+10|13=XY changer pointer           *
+*6=Changer Y1              |14=Edge pointer                 *
+*7=Changer X2              |15=Temp,RNDNO                   *
+*************************************************************
+START  LIMI 0
+       LWPI DEMOWS
+*
+* Load Character Sets
+*
+       LI   R0,>1000
+       MOV  R0,@FAC
+       BLWP @GPLLNK
+       DATA >18
+       AI   R0,512
+       MOV  R0,@FAC
+       BLWP @GPLLNK
+       DATA >4A
+       LI   R0,>1000
+       LI   R1,SPDCHR+256
+       LI   R2,768
+       BLWP @VMBR
+*
+* Reset Sound Chip
+*
+       CLR  @SOUND
+*
+* Setup and Display Title Screen
+*
+       LI   R0,>0700
+       BLWP @VWTR
+       LI   R0,6
+       LI   R1,>1F80
+       BLWP @VMODE
+       CLR  R0
+       CLR  R1
+       LI   R2,>01FF
+       LI   R3,>00D3
+       CLR  R4
+       BLWP @BOX
+       BLWP @SPDOFF
+       LI   R9,LINBUF
+START0 CLR  *R9+
+       CI   R9,LINBUF+8192
+       JNE  START0
+       LI   R9,LINBUF
+       LI   R4,>0004
+       BL   @SETUP
+START1 BL   @RND
+       SRL  R15,7
+       C    R15,*R14
+       JGT  START1
+       MOV  R15,*R12
+       BL   @DA
+       JGT  START1
+ 
+NXTART BL   @SETUP
+AB     BL   @RND              Fetch a random value
+       SRL  R15,14
+       CI   R15,2             0-2
+       JGT  AB
+       MOV  R15,*R13
+       BL   @RND              Fetch a random value
+       SRL  R15,15            0-1
+       JEQ  AE
+       NEG  *R13
+AE     BL   @DA
+       JGT  AB
+       BL   @RND              Fetch a random value
+       SRL  R15,8
+       AI   R15,63            63-319
+       MOV  R15,@NUMLIN
+       BL   @RND              Fetch a random value
+       SRL  R15,14            0-3
+       JEQ  BC             <--0 THEN BC
+ 
+BA     BL   @SETUP            ALL OTHERS
+BB     BL   @CAL
+       JGT  BB
+       BL   @PLOT
+       JGT  BA
+       B    @NXTART
+ 
+BC     CLR  @STOPS
+BD     BL   @SETUP
+       MOV  @STOPS,R15
+       JGT  BF
+       BL   @RND
+       SRL  R15,14
+       INC  R15
+       MOV  R15,@DONT
+       BL   @RND
+       SRL  R15,15
+       JEQ  BE
+       LI   R15,7
+       JMP  BE1
+BE     LI   R15,14
+BE1    MOV  R15,@STOPS
+BF     C    R10,@DONT
+       JEQ  CA
+       BL   @CAL
+       JMP  CB
+CA     DEC  @STOPS
+       BL   @DA
+CB     JGT  BF
+       BL   @PLOT
+       JGT  BD
+       B    @NXTART
+ 
+*****************************
+* Cal edge/switch values    *
+*****************************
+CAL    A    *R13,*R12
+       C    *R12,*R14
+       JLE  DA
+CC     NEG  *R13
+       JMP  CAL
+DA     INCT R12
+       INCT R13
+       INCT R14
+       DEC  R10
+       RT
+ 
+*****************************
+* Setup common startup regs *
+*****************************
+SETUP  LI   R12,DEMOWS
+       LI   R13,DEMOWS+10
+       LI   R14,EDGE
+       LI   R10,4
+       RT
+ 
+*****************************
+* Get a random number       *
+*****************************
+RND    LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       RT
+ 
+********************************** DATA PASSED: Number address (word)
+* Convert NUMBER TO ASCII   BLWP *              Buffer address (word)
+**********************************              Max. length    (word)
+NXTNUM DATA VDPWS,NXTNM1
+NXTNM1 MOV  *R14+,R6
+       MOV  *R14,@NXTNUO+2
+       MOV  *R14+,@NXTNUQ+2
+       MOV  *R14+,R8
+       MOV  *R6,R6
+       LI   R1,>2000
+NXTNUP CLR  R5
+       DIV  @DEC10,R5         Divide by 10
+       A    @DEC48,R6         Add ASCII offset to remainder
+       SLA  R6,8              Shift to MSB
+NXTNUO MOVB R6,@>0000(R8)     Move to display buffer
+       DEC  R8                * Check if at end
+       JNC  NXTRT             *
+       MOV  R5,R6             *
+       JEQ  NXTNUQ
+       JMP  NXTNUP            No ? do more
+NXTNUQ MOVB R1,@>0000(R8)
+       DEC  R8
+       JNC  NXTRT
+       JMP  NXTNUQ
+NXTRT  RTWP
+ 
+*****************************
+* Draw/Erase a line         *
+*****************************
+PLOT   BLWP @LINE             Plot the new line
+       MOV  R9,R15            Save store address for restore
+       MOV  R0,*R9+           Save the new line to bytes 0-7
+       MOV  R1,*R9+                0123 4567 89AB CDEF
+       MOV  R2,*R9+                |||| |||| |||| ||||
+       MOV  R3,*R9+     +-->  TxF  0xff ffff 1rrr ffff
+       LI   R3,>0080 >--+     R0 = ____ ___0 1234 5678
+       SLA  R0,5        |     R0 = __01 2345 678_ ____
+       MOVB R0,R3       |     R3 = 0x01 2345 1rrr ffff
+       MOVB R4,R0       |     R0 = ____ ____ 678_ ____
+       SRL  R0,4        |     R0 = ____ ____ ____ 678_
+       A    R0,R3       |     R3 = 0x01 2345 1rrr 6789
+       SWPB R3          |     R3 = 1rrr 6789 0x01 2345
+       MOVB R3,@SOUND   |     Send the first byte
+       SWPB R3          |     Fetch the next byte
+       MOVB R3,@SOUND   |     Send the second byte
+       LI   R3,>00A0 >--+     R2 = ____ ___0 1234 5678
+       SLA  R2,5              R2 = __01 2345 678_ ____
+       MOVB R2,R3             R3 = 0x01 2345 1rrr ffff
+       MOVB R4,R2             R2 = ____ ____ 678_ ____
+       SRL  R2,4              R2 = ____ ____ ____ 678_
+       A    R2,R3             R3 = 0x01 2345 1rrr 6789
+       SWPB R3                R3 = 1rrr 6789 0x01 2345
+       MOVB R3,@SOUND         Send the first byte
+       SWPB R3                Fetch the next byte
+       MOVB R3,@SOUND         Send the second byte
+       C    R9,@ENDBUF        Check if at end of line buffer
+       JNE  PLOT1             Nope, so skip over wrap-around
+       LI   R9,LINBUF         Yep, so wrap-around to the top
+PLOT1  MOV  *R9+,R0           Fetch a old line from bytes 8-15
+       MOV  *R9+,R1
+       MOV  *R9+,R2
+       MOV  *R9+,R3
+       SWPB R4                Switch to erase mode
+       BLWP @LINE             Erase a old line
+       SWPB R4                Switch to draw mode
+       MOV  R15,R9            Point back to the new line
+       MOV  *R9+,R0           Restore the current XY values
+       MOV  *R9+,R1
+       MOV  *R9+,R2
+       MOV  *R9+,R3
+       C    R9,@ENDBUF        Check if at end of line buffer
+       JNE  PLOT2             Nope, so skip over wrap-around
+       LI   R9,LINBUF         Yep, so wrap-around to the top
+PLOT2  BLWP @KSCAN            Scan the keyboard
+       MOVB @KEYVAL,R15       Check if a key was pressed
+       JGT  PLOT3             Yep, so check if it was menu key
+       MOV  @LDEL,R15         Nope, so check if no delay set
+       JEQ  PLTEND            Yep, so skip over delay loop
+PLTDEL DEC  R15               Check if delay is finished
+       JNE  PLTDEL            Nope, so delay some more
+PLTEND DEC  @NUMLIN           Count down the lines ploted
+       RT                     RETURN TO THE CALLING PROGRAM
+ 
+PLOT3  CB   R15,@ENTER        Check if menu key was pressed
+       JNE  PLTEND            Nope, so skip the delay instead
+       BLWP @CLRSPD
+       BLWP @NXTNUM
+       DATA LDEL,LDELLN,4
+       BLWP @WRTSPD
+       DATA ARTMNU
+       BLWP @SPDON
+       MOVB @T1OFF,@SOUND
+       MOVB @T2OFF,@SOUND
+       LI   R15,PLTEND
+       MOV  R15,@EXIT+2
+MENU0  BLWP @KSCAN
+       CB   @KEYVAL,R15
+       JEQ  MENU0
+MENU   BLWP @KSCAN
+       LI   R15,3000
+MENU1  DEC  R15
+       JNE  MENU1
+       LI   R15,KEYTBL
+MENU2  MOV  *R15+,@MENU3+2
+       JEQ  MENU
+       INC  R15
+       CB   *R15+,@KEYVAL
+       JNE  MENU2
+MENU3  B    @>0000
+ 
+LINEPC A    @DEC10,@SIZBUF
+       JMP  LINEBC
+LINEMC S    @DEC10,@SIZBUF
+LINEBC JEQ  LINERC
+       C    @SIZBUF,@MAXBUF
+       JLE  LINEGC
+LINERC MOV  @DEC10,@SIZBUF
+LINEGC BLWP @NXTNUM
+       DATA SIZBUF,LINELN,4
+       BLWP @WRTSPD
+       DATA ARTLIN
+       MOV  @SIZBUF,R15
+       SLA  R15,3
+       AI   R15,LINBUF
+       MOV  R15,@ENDBUF
+       LI   R15,START
+       MOV  R15,@EXIT+2
+       JMP  MENU
+ 
+LDELPC A    @DEC10,@LDEL
+       JMP  LDELBC
+LDELMC S    @DEC10,@LDEL
+LDELBC BLWP @NXTNUM
+       DATA LDEL,LDELLN,4
+       BLWP @WRTSPD
+       DATA ARTLDL
+       JMP  MENU
+ 
+ENTERC BLWP @SPDOFF
+ENTERW BLWP @KSCAN
+       CB   @KEYVAL,@ENTER
+       JEQ  ENTERW
+       MOV  @LDEL,R15
+       JNE  EXIT
+       MOVB @T1ON,@SOUND
+       MOVB @T2ON,@SOUND
+EXIT   B    @>0000
+ 
+************************************
+* BRING IN COMMON LIBRARY ROUTINES *
+************************************
+       COPY "DSK7.EA-LIB"
+       COPY "DSK7.VDP-LIB"
+       EVEN
+*
+* ALL DATA AT END OF PROGRAM
+*
+ONE    DATA 1
+DEC10  DATA 10
+DEC48  DATA 48
+SIZBUF DATA 60                Default of a 50  line buffer
+ENDBUF DATA 60*8+LINBUF       Calc address of buffer end
+MAXBUF DATA 1000              Max. number of lines in buffer
+LDEL   DATA 0300              Delay between lines
+EDGE   DATA 511,211,511,211   Edge X1,Y1 ; X2,Y2 for G6 modes
+ARTMNU DATA LN02,>F00         Display menu screen
+       DATA LINELN,>F2B,LDELLN,>F3B,0
+ARTLIN DATA LINELN,>F2B,0     Update LINE display
+ARTLDL DATA LDELLN,>F3B,0     Update LDEL display
+KEYTBL DATA LDELPC,'[',LDELMC,']',ENTERC,13,START,32
+       DATA LINEPC,'<',LINEMC,'>',0
+LN02   TEXT 'GAT-3D-SA   MENU'
+       TEXT '                '
+       TEXT '<,> = LINE      '
+       TEXT '[,] = LDEL      '
+       TEXT '                '
+       TEXT '                '
+       TEXT 'ENTER = Exits   '
+       TEXT 'SPACE = Restarts'
+       BYTE 0
+LINELN TEXT '00300'
+       BYTE 0
+LDELLN TEXT '00300'
+       BYTE 0
+ENTER  BYTE 13
+T1OFF  BYTE >9F
+T2OFF  BYTE >BF
+T1ON   BYTE >90
+T2ON   BYTE >B0
+       EVEN
+*
+* End of Program
+*
+SLAST  EQU  $
+*
+* Buffers and Workspaces after file image
+*
+DEMOWS BSS  32
+RNDNUM BSS  2
+STOPS  BSS  2
+DONT   BSS  2
+NUMLIN BSS  2
+LINBUF BSS  8192              Enough for 1024 lines
+*
+* THAT IS ALL FOLKS!
+*
+       END

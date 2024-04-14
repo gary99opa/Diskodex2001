@@ -1,0 +1,245 @@
+****************************************************************
+* FST-S       v1.00.08/01/90  V9938 FAST GAT! 3D-ART BY O.P.A. *
+****************************************************************
+*                                                              *
+* Source Published: 04/11/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1990 by Gary Bowser from Oasis Pensive Abacutors *
+*                                                              *
+* Credit Must Be Given If Any Part Of This Source Code Is Used *
+*                                                              *
+****************************************************************
+       TITL '9938 FAST GAT! 3D-SA by Gary Bowser'
+       IDT  'FST v1.0'
+       DEF  SFIRST,START,SLAST
+       AORG >A050
+SFIRST EQU  $
+ 
+*************************************************************
+*0=Temp,X1           DEMOWS|8 =Changer Y2                   *
+*1=Temp,Y1                 |9 =Page shift control           *
+*2=Temp,X2                 |10=Count from 4 to 1,temp       *
+*3=Temo,Y2                 |11=Return address for BL'S,Temp *
+*4=Line Color              |12=XY pointer                   *
+*5=Changer X1     DEMOWS+10|13=XY changer pointer           *
+*6=Changer Y1              |14=Edge pointer                 *
+*7=Changer X2              |15=Temp,RNDNO                   *
+*************************************************************
+START  LIMI 0
+       LWPI DEMOWS
+*
+* Setup Graphics Mode
+*
+       LI   R0,>0700
+       BLWP @VWTR
+       LI   R0,>080A
+       BLWP @VWTR
+       LI   R0,7
+       LI   R1,>3F80
+       LI   R4,>00FF
+       LI   R9,>0001
+       BLWP @VMODE
+NXTART SWPB R9
+       LI   R0,>023F
+       MOVB R9,R9
+       JEQ  GOART
+       LI   R0,>021F
+GOART  BLWP @VWTR             Switch to the right page
+       MOV  R4,R5
+       CLR  R0                Start clear at top-left X corner
+       CLR  R1                Start clear at top-left Y corner
+       LI   R2,>00FF          256 wide clear for G7 mode
+       LI   R3,>00D3          End   clear at bottom-right corner
+       CLR  R4                Fill box with backdrop color
+       AB   R9,R1             Point to odd page
+       AB   R9,R3             Point to odd page
+       BLWP @BOX              Do a shifted clear
+       MOV  R5,R4
+       LI   R12,DEMOWS
+       LI   R13,DEMOWS+10
+       LI   R14,EDGE
+       LI   R10,4
+AA     LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       SRL  R15,7             0-511
+       C    R15,*R14          Check if pass the edge
+       JGT  AA                Yep, so get a lower value
+       MOV  R15,*R12          Save this starting XY value
+AB     LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       SRL  R15,12            0-15
+       CI   R15,9
+       JGT  AB
+       JLT  AC
+       LI   R15,6
+AC     CI   R15,8
+       JNE  AD
+       LI   R15,3
+AD     MOV  R15,*R13
+       LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       SRL  R15,15            0-1
+       JEQ  AE
+       NEG  *R13
+AE     INCT R12
+       INCT R13
+       INCT R14
+       DEC  R10
+       JGT  AA
+       LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       SRL  R15,8
+       AI   R15,63            63-319
+       MOV  R15,@NUMLIN
+       LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       SRL  R15,14            0-3
+       MOV  R15,@SART1
+       LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       LI   R11,NXTART
+       SRL  R15,14            0-3
+       JEQ  BC
+ 
+BA     LI   R12,DEMOWS
+       LI   R13,DEMOWS+10
+       LI   R14,EDGE
+       LI   R10,4
+CAL1S  A    *R13,*R12
+       C    *R12,*R14
+       JLE  CAL1E
+       NEG  *R13
+       C    @SART1,@ONE
+       JLT  CAL1S
+CAL1N  LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       SRL  R15,8
+       CI   R15,5
+       JL   CAL1N
+       MOV  R15,R4
+       JMP  CAL1S
+CAL1E  INCT R12
+       INCT R13
+       INCT R14
+       DEC  R10
+       JGT  CAL1S
+       AB   R9,R1             Point to odd page
+       AB   R9,R3             Point to odd page
+       BLWP @LINE             Do a shifted plot
+       SB   R9,R1             Point to even page
+       SB   R9,R3             Point to even page
+       DEC  @NUMLIN           Count down the lines ploted
+       JGT  BA
+       RT
+ 
+BC     CLR  @STOPS
+BD     LI   R12,DEMOWS
+       LI   R13,DEMOWS+10
+       LI   R14,EDGE
+       LI   R10,4
+       MOV  @STOPS,R15
+       JGT  BF
+       LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       SRL  R15,14
+       INC  R15
+       MOV  R15,@DONT
+       LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       SRL  R15,15
+       JEQ  BE
+       LI   R15,7
+       JMP  BE1
+BE     LI   R15,14
+BE1    MOV  R15,@STOPS
+BF     C    R10,@DONT
+       JEQ  CA
+CAL2S  A    *R13,*R12
+       C    *R12,*R14
+       JLE  CAL2E
+       NEG  *R13
+       C    @SART1,@ONE
+       JLT  CAL2S
+CAL2N  LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       SRL  R15,8
+       CI   R15,5
+       JL   CAL2N
+       MOV  R15,R4
+       JMP  CAL2S
+CA     DEC  @STOPS
+CAL2E  INCT R12
+       INCT R13
+       INCT R14
+       DEC  R10
+CB     JGT  BF
+       AB   R9,R1             Point to odd page
+       AB   R9,R3             Point to odd page
+       BLWP @LINE             Do a shifted plot
+       SB   R9,R1             Point to even page
+       SB   R9,R3             Point to even page
+       DEC  @NUMLIN           Count down the lines ploted
+       JGT  BD
+       RT
+ 
+************************************
+* BRING IN COMMON LIBRARY ROUTINES *
+************************************
+       COPY "DSK7.EA-LIB"
+       COPY "DSK7.VDP-LIB"
+*
+* ALL DATA AT END OF PROGRAM
+*
+ONE    DATA 1
+FOUR   DATA 4
+EDGE   DATA 255,211,255,211   Edge X1,Y1 ; X2;Y2 for G7 modes
+*
+* End of Program
+*
+SLAST  EQU  $
+*
+* Use High-Speed PAD for Workspace
+*
+DEMOWS EQU  >8380             Save to use as no GPL or BASIC usage!
+*
+* Use High-Speed PAD for String Art Calc and Random Numbers
+*
+RNDNUM EQU  >83A0             Save to use as no GPL or BASIC usage!
+STOPS  EQU  >83A2
+DONT   EQU  >83A4
+SART1  EQU  >83A6
+NUMLIN EQU  >83A8
+*
+* THAT IS ALL FOLKS!
+*
+       END

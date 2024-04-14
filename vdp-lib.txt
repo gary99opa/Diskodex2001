@@ -1,0 +1,470 @@
+****************************************************************
+* VDP-LIB     v1.00.07/30/90  V9938/58 VDP UTILITIES BY O.P.A. *
+****************************************************************
+*                                                              *
+* Source Published: 04/11/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1990 by Gary Bowser from Oasis Pensive Abacutors *
+*                                                              *
+* Credit Must Be Included When Using Any These Utilities Below *
+*                                                              *
+****************************************************************
+ 
+*****************************
+* PSET                 BLWP *
+*                           *
+* R0 - X of point        r1 *
+* R1 - Y of point        r2 *
+* R2 - not used          r3 *
+* R3 - not used          r4 *
+* R4 - Color             r5 *
+*****************************
+PSET   DATA CMDWS,PSET1            Command workspace / Entry
+PSET1  MOV  R13,R0                 Get old workspace pointer
+       MOV  *R0+,R1                Fetch X of point
+       MOV  *R0+,R2                Fetch Y of point
+       MOV  *R0+,R3                Fetch nothing!
+       MOV  *R0+,R4                Fetch nothing!
+       MOV  *R0+,R5                Fetch color
+       BL   @CMDEXE                EXECUTE A VDP COMMAND
+       DATA >5000                  Data for POINT SET
+       RTWP                        RETURN TO CALLING PROGRAM
+ 
+*****************************
+* BOX                  BLWP *
+*                           *
+* R0 - Top-Left X1        r1*
+* R1 - Top-Left Y1        r2*
+* R2 - Bottom-Right X2    r3*
+* R3 - Bottom-Right Y2    r4*
+* R4 - Color              r5*
+*****************************
+BOX    DATA CMDWS,BOX1             Command workspace / Entry
+BOX1   MOV  R13,R0                 Get old workspace pointer
+       MOV  *R0+,R1                Fetch X1 (top-left)
+       MOV  *R0+,R2                Fetch Y1 (top-left)
+       MOV  *R0+,R3                Fetch X2 (bottom-right)
+       MOV  *R0+,R4                Fetch Y2 (bottom-right)
+       MOV  *R0+,R5                CLR
+       CLR  R8                     ARG
+       MOV  R3,R6                  COPY (X2) TO R6
+       MOV  R4,R7                  COPY (Y2) TO R7
+       S    R1,R6
+       JEQ  BOX3
+       ABS  R6                     R6 = ABS(X2-X1)
+       JGT  BOX2                   right
+       ORI  R8,>0004               LEFT
+BOX2   INC  R6
+BOX3   S    R2,R7
+       JEQ  BOX5
+       ABS  R7                     R7 = ABS(Y2-Y1)
+       JGT  BOX4                   down
+       ORI  R8,>0008               UP
+BOX4   INC  R7
+BOX5   BL   @CMDEXE                EXECUTE A VDP COMMAND
+       DATA >C000       !TEMP!     Data for DRAW BOX (WAS >8000)
+       RTWP                        RETURN TO THE CALLING PROGRAM
+ 
+*****************************
+* LINE                 BLWP *
+*                           *
+* R0 - Start X1           r1*
+* R1 - Start Y1           r2*
+* R2 - End   X2           r3*
+* R3 - End   Y2           r4*
+* R4 - Color              r5*
+*****************************
+LINE   DATA CMDWS,LINE1
+LINE1  MOV  R13,R0
+       MOV  *R0+,R1
+       MOV  *R0+,R2
+       MOV  *R0+,R3
+       MOV  *R0+,R4
+       MOV  *R0+,R5
+       INC  R3
+       INC  R4
+       CLR  R8
+       MOV  R3,R6
+       MOV  R4,R7
+       S    R1,R6
+       ABS  R6
+       JGT  LINE3
+       ORI  R8,>0004
+LINE3  S    R2,R7
+       ABS  R7
+       JGT  LINE4
+       ORI  R8,>0008
+LINE4  C    R6,R7
+       JGT  LINE5
+       ORI  R8,>0001
+       MOV  R6,R0
+       MOV  R7,R6
+       MOV  R0,R7
+LINE5  BL   @CMDEXE                EXECUTE A VDP COMMAND
+       DATA >7000                  Data for DRAW LINE
+       RTWP
+ 
+*****************************    +---> 0 = Flash
+* WIPE      G7 only    BLWP *    |     1 = Left
+*                           *    |     2 = Right
+* R0 - Color         LINE r4*    |     3 = Down
+* R1 - Not used      LINE r5*    |     4 = Up
+* R2 - Wipe type >>>>>>>> r1*----+     5 = Out
+*****************************
+WIPE   DATA VDPWS,WIPEGO           VDP workspace / Entry
+WIPEGO MOV  R13,R9                 Get old workspace pointer
+       MOV  *R9+,R4                Fetch color
+       MOV  *R9+,R5                Fetch nothing!
+       MOV  *R9+,R1                Fetch wipe type
+       SLA  R1,1                   Calc table offset
+       MOV  @WPETBL(R1),R11        Get the wipe entry point
+       AI   R1,-10                 Check if type higher than 5
+       JGT  WIPEND                 Yep, so exit the wiper
+       MOV  *R11+,R0               Fetch starting X1
+       MOV  *R11+,R1               Fetch starting Y1
+       MOV  *R11+,R2               Fetch starting X2
+       MOV  *R11+,R3               Fetch starting Y2
+       RT                          EXECUTE A WIPE COMMAND
+WIPEND RTWP                        RETURN TO THE CALLING PROGRAM
+WPETBL DATA WIPE0,WIPE1,WIPE2,WIPE3,WIPE4,WIPE5  F,L,R,D,U,O wipes
+WIPE0  JMP  WIPEND
+WIPE1  DATA 0,0,0,211
+       BLWP @LINE
+       INC  R2
+       INC  R0
+       CI   R0,512
+       JEQ  WIPEND
+       RT
+WIPE2  DATA 511,0,511,211
+       BLWP @LINE
+       DEC  R2
+       DEC  R0
+       JNC  WIPEND
+       RT
+WIPE3  DATA 0,0,511,0
+       BLWP @LINE
+       INC  R3
+       INC  R1
+       CI   R1,212
+       JEQ  WIPEND
+       RT
+WIPE4  DATA 0,211,511,211
+       BLWP @LINE
+       DEC  R3
+       DEC  R1
+       JNC  WIPEND
+       RT
+WIPE5  JMP  WIPEND
+ 
+*****************************
+* BIT SCROLL           BLWP *
+*                           *
+* R0 - Starting row         *
+* R1 - Ending row           *
+* R2 - Number of pixels     *
+*****************************
+BITSCR DATA VDPWS,BITSC1
+BITSC1 MOV  R13,R5
+       MOV  *R5+,R1           Starting row
+       MOV  *R5+,R2           Ending row
+       MOV  *R5+,R3           Number of pizels
+       MOV  R1,R4             DESTINATION ROW
+       A    R3,R1             GET START ROW TO MOVE UP
+       S    R1,R2             GET NUMBER OF PIXELS HIGH
+       BL   @VWAIT
+ 
+       SWPB R1
+       LI   R0,>0022
+       MOVB R1,R0
+       SWPB R0                R#34 START ROW Y
+       BLWP @VWTR             LOW BYTE
+ 
+       SWPB R1
+       LI   R0,>0023
+       MOVB R1,R0
+       SWPB R0                R#35 START ROW Y
+       BLWP @VWTR             HIGH BYTE
+ 
+       LI   R0,>2400          R#36
+       BLWP @VWTR             START X LOW =0
+ 
+       LI   R0,>2500          R#37
+       BLWP @VWTR             START X HIGH =0
+ 
+       SWPB R4
+       LI   R0,>0026
+       MOVB R4,R0
+       SWPB R0                R#38
+       BLWP @VWTR             DESTINATION Y LOW
+ 
+       SWPB R4
+       LI   R0,>0027
+       MOVB R4,R0
+       SWPB R0                R#39
+       BLWP @VWTR             DESTINATION Y HIGH
+ 
+       SWPB R2
+       LI   R0,>002A
+       MOVB R2,R0
+       SWPB R0                R#42
+       BLWP @VWTR             NUMBER OF DOTS Y LOW
+ 
+       SWPB R2
+       LI   R0,>002B
+       MOVB R2,R0
+       SWPB R0                R#43
+       BLWP @VWTR             NUMBER OF DOTS Y HIGH
+ 
+       LI   R0,>2D00          R#45  0000 0000
+       BLWP @VWTR             ARGUMENT REGISTER
+ 
+       LI   R0,>2EE0          R#46  1110 0000
+       BLWP @VWTR             HIGH SPEED MOVE COMMAND
+       RTWP
+ 
+*****************************
+* VMODE                BLWP *
+*                           *
+* R0 - MC, Gs 1-7 , T1,T2 r1*
+* R1 - VDP R2/R9 settings   *
+*****************************
+VMODE  DATA CMDWS,VMODE1
+VMODE1 MOVB @VRSTA2+1,*R10    SET STATUS #2 ON
+       MOVB @VRSTA2,*R10
+       NOP
+VMODE2 MOVB *R9,R0            Read S2
+       ANDI R0,>0100          Check if command done?
+       JNE  VMODE2            If not,wait until so
+       MOVB @VRSTA0+1,*R10    SET STATUS #0 ON
+       MOVB @VRSTA0,*R10
+       MOV  *R13,R1           Get Graphics mode (R0)
+       MOVB @VM$R0+1,*R10     R17 == R0
+       MOVB @VM$R0,*R10
+       SLA  R1,1
+       MOVB @VMTBL(R1),*R12   Get R0 value for selected mode
+       MOVB @VMTBL+1(R1),*R12 Get R1 value for selected mode
+       MOVB @VMTBL+1(R1),@VDPR1
+       MOVB @1*2(R13),*R12    Get R2 value for selected mode
+       MOVB @1*2+1(R13),*R10  Get R9 value for selected mode
+       MOVB @VM$R9,*R10       Store R9
+       RTWP   MC    G1    G2    G3    G4    G5    G6    G7
+VMTBL  DATA >006B,>0063,>0263,>0463,>0663,>0863,>0A63,>0E63
+       DATA >0073,>0473  <--- T1,T2
+VM$R0  DATA >9100                R17 == R0
+VRSTA0 DATA >8F00           S0   9918 Status
+VRSTA2 DATA >8F02           S2   9938 Status #2
+VM$R9  DATA >8900           R9   9938 Set R9 data
+CMDR36 DATA >9124                R17 == R36
+CMDWS  BSS  18           R0-R8   COMMAND WORKSPACE
+       DATA VDPSTA          R9   Video Read  Port #2 address
+       DATA VDPWA           R10  Video Write Port #1 address
+       DATA >0000           R11  BL   RETURN DATA
+       DATA VDPWC       R12  Video Write Port #3 address
+       BSS  6           R13-R15  BLWP RETURN DATA
+ 
+*****************************
+* Execute/setup a command   *
+*****************************
+CMDEXE MOVB @VRSTA2+1,*R10       R15 == S2
+       MOVB @VRSTA2,*R10
+       NOP
+CMDEXF MOVB *R9,R0               Check Status
+       ANDI R0,>0100             Last Command Done?
+       JNE  CMDEXF               No, then wait until so
+       MOVB @VRSTA0+1,*R10       R15 == S0
+       MOVB @VRSTA0,*R10
+       MOVB @CMDR36+1,*R10       R17 == R36
+       MOVB @CMDR36,*R10
+       NOP
+       MOVB @1*2+1+CMDWS,*R12    R36
+       MOVB R1,*R12              R37
+       MOVB @2*2+1+CMDWS,*R12    R38
+       MOVB R2,*R12              R39
+       MOVB @6*2+1+CMDWS,*R12    R40
+       MOVB R6,*R12              R41
+       MOVB @7*2+1+CMDWS,*R12    R42
+       MOVB R7,*R12              R43
+       MOVB @5*2+1+CMDWS,*R12    R44
+       MOVB @8*2+1+CMDWS,*R12    R45
+       MOVB *R11+,*R12           R46
+       INC  R11
+       RT
+ 
+*****************************
+* Wait until VDP is ready!  *
+*****************************
+VWAIT  MOVB @VRSTA2+1,@VDPWA
+       MOVB @VRSTA2,@VDPWA
+VWAIT1 MOVB @VDPSTA,R0
+       ANDI R0,>0100
+       JNE  VWAIT1
+       MOVB @VRSTA0+1,@VDPWA
+       MOVB @VRSTA0,@VDPWA
+       RT
+ 
+*****************************
+* Sprites ON!          BLWP *
+*****************************
+SPDON  DATA VDPWS,SPDON1
+SPDON1 LI   R0,>0E03         Bank #3
+       BLWP @VWTR
+       LI   R0,>3A00
+       LI   R1,SPDTBL        Write SAT at >FA00
+       LI   R2,128
+       BLWP @VMBW
+       LI   R0,>05F4         R5 =>F4  SAT=>FA00
+       BLWP @VWTR
+       LI   R0,>061E         R6 =>1E  SGT=>F000
+       BLWP @VWTR
+       LI   R0,>0B01         R11=>01  SAT=>FA00
+       BLWP @VWTR
+       LI   R0,>0E00         Bank #0
+       BLWP @VWTR
+       LI   R0,>0808         Sprites on!
+       BLWP @VWTR
+       RTWP
+ 
+*****************************
+* Sprites OFF!         BLWP *
+*****************************
+SPDOFF DATA VDPWS,SPDOF1
+SPDOF1 LI   R0,>080A          Sprites off!
+       BLWP @VWTR
+       LI   R0,>0B00
+       BLWP @VWTR
+       LI   R0,>0600
+       BLWP @VWTR
+       LI   R0,>0500
+       BLWP @VWTR
+       RTWP
+ 
+*****************************
+* Clear sprites!       BLWP *
+*****************************
+CLRSPD DATA VDPWS,CRSPD1
+CRSPD1 LI   R0,>0E03          Bank #3
+       BLWP @VWTR
+       LI   R0,>3400          Clear Sprite Screen
+       CLR  R1
+       LI   R2,1024
+CRSPD2 BLWP @VSBW
+       INC  R0
+       DEC  R2
+       JNE  CRSPD2
+       LI   R0,>0E00          Bank #0
+       BLWP @VWTR
+       RTWP
+ 
+*****************************
+* Write sprites!       BLWP *
+*****************************
+WRTSPD DATA VDPWS,SPDIS1
+SPDIS1 LI   R0,>0E03
+       BLWP @VWTR
+       MOV  *R14+,R4
+SPDIS2 MOV  *R4+,R5
+       JEQ  SPEND
+       MOV  *R4+,R3
+       ANDI R3,>0F7F
+SPDIS3 CLR  R1
+       MOVB *R5+,R1
+       JEQ  SPDIS2
+       SRL  R1,5
+       AI   R1,SPDCHR
+       MOV  R3,R8
+       MOV  R3,R6
+       LI   R7,>3400
+       ANDI R8,>000F
+       SRL  R8,1
+       JNC  SPDIS4
+       AI   R7,16
+SPDIS4 ANDI R6,>0070
+       SRL  R6,5
+       JNC  SPDIS5
+       AI   R7,8
+SPDIS5 SLA  R6,3
+       A    R6,R8
+       MOV  R8,R0
+       SLA  R0,5
+       A    R7,R0
+       LI   R2,8
+       BLWP @VMBW
+       CLR  R1
+       MOVB R3,R1
+       JEQ  SPDIS7
+       MOV  R8,R0
+       SLA  R0,4
+       AI   R0,>3800
+       LI   R2,16
+SPDIS6 BLWP @VSBW
+       INC  R0
+       DEC  R2
+       JNE  SPDIS6
+SPDIS7 INC  R3
+       ANDI R3,>0F7F
+       JMP  SPDIS3
+SPEND  LI   R0,>0E00
+       BLWP @VWTR
+       RTWP
+*
+* Sprite Data For Big Menu And Text
+*
+       EVEN
+SPDTBL DATA >2000,>8001,>2020,>8401,>2040,>8801,>2060,>8C01
+       DATA >2080,>9001,>20A0,>9401,>20C0,>9801,>20E0,>9C01
+       DATA >4000,>A001,>4020,>A401,>4040,>A801,>4060,>AC01
+       DATA >4080,>B001,>40A0,>B401,>40C0,>B801,>40E0,>BC01
+       DATA >6000,>C001,>6020,>C401,>6040,>C801,>6060,>CC01
+       DATA >6080,>D001,>60A0,>D401,>60C0,>D801,>60E0,>DC01
+       DATA >8000,>E001,>8020,>E401,>8040,>E801,>8060,>EC01
+       DATA >8080,>F001,>80A0,>F401,>80C0,>F801,>80E0,>FC01
+SPDCHR EQU  $-256
+       DATA >0000,>0000,>0000,>0000,>0010,>1010,>1010,>0010    , !
+       DATA >0028,>2828,>0000,>0000,>0028,>287C,>287C,>2828  " , #
+       DATA >0038,>5450,>3814,>5438,>0060,>6408,>1020,>4C0C  $ , %
+       DATA >0020,>5050,>2054,>4834,>0008,>0810,>0000,>0000  & , '
+       DATA >0008,>1020,>2020,>1008,>0020,>1008,>0808,>1020  ( , )
+       DATA >0000,>2810,>7C10,>2800,>0000,>1010,>7C10,>1000  * , +
+       DATA >0000,>0000,>0030,>1020,>0000,>0000,>7C00,>0000  , , -
+       DATA >0000,>0000,>0000,>3030,>0000,>0408,>1020,>4000  . , /
+       DATA >0038,>4444,>4444,>4438,>0010,>3010,>1010,>1038  0 , 1
+       DATA >0038,>4404,>0810,>207C,>0038,>4404,>1804,>4438  2 , 3
+       DATA >0008,>1828,>487C,>0808,>007C,>4078,>0404,>4438  4 , 5
+       DATA >0018,>2040,>7844,>4438,>007C,>0408,>1020,>2020  6 , 7
+       DATA >0038,>4444,>3844,>4438,>0038,>4444,>3C04,>0830  8 , 9
+       DATA >0000,>3030,>0030,>3000,>0000,>3030,>0030,>1020  : , ;
+       DATA >0008,>1020,>4020,>1008,>0000,>007C,>007C,>0000  < , =
+       DATA >0020,>1008,>0408,>1020,>0038,>4404,>0810,>0010  > , ?
+       DATA >0038,>445C,>545C,>4038,>0038,>4444,>7C44,>4444  @ , A
+       DATA >0078,>2424,>3824,>2478,>0038,>4440,>4040,>4438  B , C
+       DATA >0078,>2424,>2424,>2478,>007C,>4040,>7840,>407C  D , E
+       DATA >007C,>4040,>7840,>4040,>003C,>4040,>5C44,>4438  F , G
+       DATA >0044,>4444,>7C44,>4444,>0038,>1010,>1010,>1038  H , I
+       DATA >0004,>0404,>0404,>4438,>0044,>4850,>6050,>4844  J , K
+       DATA >0040,>4040,>4040,>407C,>0044,>6C54,>5444,>4444  L , M
+       DATA >0044,>6464,>544C,>4C44,>007C,>4444,>4444,>447C  N , O
+       DATA >0078,>4444,>7840,>4040,>0038,>4444,>4454,>4834  P , Q
+       DATA >0078,>4444,>7850,>4844,>0038,>4440,>3804,>4438  R , S
+       DATA >007C,>1010,>1010,>1010,>0044,>4444,>4444,>4438  T , U
+       DATA >0044,>4444,>2828,>1010,>0044,>4444,>5454,>5428  V , W
+       DATA >0044,>4428,>1028,>4444,>0044,>4428,>1010,>1010  X , Y
+       DATA >007C,>0408,>1020,>407C,>3C42,>99A1,>A199,>423C  Z , [
+       DATA >0000,>4020,>1008,>0400,>0038,>0808,>0808,>0838  \ , ]
+       DATA >0000,>1028,>4400,>0000,>0000,>0000,>0000,>007C  ^ , _
+       DATA >0000,>2010,>0800,>0000,>0000,>0038,>4848,>4834  ` , a
+       DATA >0040,>4070,>4848,>4870,>0000,>0038,>4040,>4038  b , c
+       DATA >0008,>0838,>4848,>4834,>0000,>0038,>4870,>4038  d , e
+       DATA >0018,>2020,>7020,>2020,>0000,>0038,>4838,>0830  f , g
+       DATA >0040,>4070,>4848,>4848,>0010,>0030,>1010,>1038  h , i
+       DATA >0010,>0030,>1010,>5020,>0040,>4048,>5060,>5048  j , k
+       DATA >0030,>1010,>1010,>1038,>0000,>0078,>5454,>5454  l , m
+       DATA >0000,>0070,>4848,>4848,>0000,>0030,>4848,>4830  n , o
+       DATA >0000,>0070,>4870,>4040,>0000,>0038,>4838,>0808  p , q
+       DATA >0000,>0058,>6440,>4040,>0000,>0038,>4038,>0438  r , s
+       DATA >0020,>2078,>2020,>2418,>0000,>0048,>4848,>483C  t , u
+       DATA >0000,>0044,>4428,>2810,>0000,>0044,>4454,>5438  v , w
+       DATA >0000,>0044,>2810,>2844,>0000,>0048,>4830,>1020  x , y
+       DATA >0000,>0038,>0810,>2038,>0018,>2020,>4020,>2018  z , {
+       DATA >0010,>1010,>0010,>1010,>0030,>0808,>0408,>0830  | , }
+       DATA >0020,>5408,>0000,>0000,>0000,>1028,>447C,>0000  ~ , DEL
+       EVEN

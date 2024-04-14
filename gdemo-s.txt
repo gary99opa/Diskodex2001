@@ -1,0 +1,889 @@
+****************************************************************
+* GDEMO-S     v1.00.10/11/88  TIM/AVPC V9938/58 DEMO BY O.P.A. *
+****************************************************************
+*                                                              *
+* Source Published: 04/11/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1988 by Gary Bowser from Oasis Pensive Abacutors *
+*                                                              *
+* Below Code Is An Example Usage Of O.P.A.'s VDP-LIB Routines! *
+*                                                              *
+****************************************************************
+       TITL 'TIMAVPC9938 DEMO by Gary Bowser from O.P.A.'
+       IDT  'GDEMO1.0'
+       DEF  SFIRST,START,SLAST
+ 
+       AORG >A000
+SFIRST EQU  $
+START  LIMI 0
+       LWPI DEMOWS
+*
+* Load Character Sets
+*
+       LI   R0,>1000
+       MOV  R0,@FAC
+       BLWP @GPLLNK
+       DATA >18
+       AI   R0,512
+       MOV  R0,@FAC
+       BLWP @GPLLNK
+       DATA >4A
+       LI   R0,>1000
+       LI   R1,SPDCHR+256
+       LI   R2,768
+       BLWP @VMBR
+*
+* Clear Graphics / Display Test Pattern
+*
+RERUN  LI   R0,6
+       LI   R1,>1F80
+       BL   @GCLEAR
+       BL   @CBTEST
+       BLWP @CLRSPD
+       BLWP @WRTSPD
+       DATA TITSCR
+       BLWP @SPDON
+       BL   @DWAIT
+       DATA 8
+       BL   @WIGGLE
+       DATA 1000
+       BLWP @SPDOFF
+ 
+       BL   @NOTE
+       DATA BOXSCR
+       LI   R0,6
+       LI   R1,>1F80
+       BL   @GCLEAR
+       BL   @CBTEST
+       BL   @DWAIT
+       DATA 4
+ 
+       LI   R15,1024
+       LI   R0,7
+       LI   R1,>1F80
+       BL   @GCLEAR
+       LI   R0,>000A
+       LI   R1,>0096
+       LI   R2,>0064
+       LI   R3,>000A
+       CLR  R4
+       LI   R5,1
+       MOV  R5,R6
+       MOV  R6,R7
+       MOV  R7,R8
+BOXD1A BLWP @BOX
+       INC  R4
+       BL   @CHKEDG
+       DATA 255,211,255,211
+       DEC  R15
+       JNE  BOXD1A
+       BL   @DWAIT
+       DATA 4
+ 
+       LI   R15,1024
+       LI   R0,6
+       LI   R1,>1F80
+       BL   @GCLEAR
+       LI   R0,>000A
+       LI   R1,>0096
+       LI   R2,>0064
+       LI   R3,>000A
+       CLR  R4
+       LI   R5,1
+       MOV  R5,R6
+       MOV  R6,R7
+       MOV  R7,R8
+BOXD1B BLWP @BOX
+       INC  R4
+       BL   @CHKEDG
+       DATA 511,211,511,211
+       DEC  R15
+       JNE  BOXD1B
+       BL   @DWAIT
+       DATA 4
+ 
+       CLR  R13
+       LI   R14,VDPWC
+       LI   R10,12288         Random boxs before end
+       LI   R0,6
+       LI   R1,>1F80
+       BL   @GCLEAR
+BOXD2A BL   @VWAIT
+       CI   R10,6144
+       JH   BOXD2B
+       MOV  R13,R0
+       ANDI R13,>00FF
+       AI   R0,>1700
+       BLWP @VWTR
+       INC  R13
+BOXD2B MOVB @BOXD2S+1,@VDPWA       R17 == R36
+       MOVB @BOXD2S,@VDPWA
+       BL   @RND
+       ANDI R15,>01FF
+       MOVB @15*2+1+DEMOWS,*R14
+       MOVB R15,*R14
+       BL   @RND
+       ANDI R15,>00FF
+       MOVB @15*2+1+DEMOWS,*R14
+       MOVB R15,*R14
+       BL   @RND
+       ANDI R15,>003F
+       AI   R15,>0008
+       MOVB @15*2+1+DEMOWS,*R14
+       MOVB R15,*R14
+       BL   @RND
+       ANDI R15,>003F
+       AI   R15,>0008
+       MOVB @15*2+1+DEMOWS,*R14
+       MOVB R15,*R14
+       BL   @RND
+       ANDI R15,>000F
+       MOV  R15,R0
+       SLA  R0,4
+       A    R0,R15
+       MOVB @15*2+1+DEMOWS,*R14
+       MOVB @BOXD2C,*R14      CLEAR ARG
+       MOVB @BOXD2C+1,*R14    SEND  CMD
+       DEC  R10               At END OF RANDOM BOXs
+       JNE  BOXD2A            Nope, so do another
+       LI   R0,>1700
+       BLWP @VWTR
+       B    @LINDS
+BOXD2S DATA >9124             R17 == R36
+BOXD2C DATA >00C0  CMD  HMMV  R46
+ 
+LINDS  BL   @NOTE
+       DATA LINSCR
+       LI   R0,7
+       LI   R1,>1F80
+       BL   @GCLEAR
+       CLR  R0
+       CLR  R1
+       CLR  R2
+       LI   R3,>D3
+       CLR  R4
+LIND1A BLWP @LINE
+       INC  R1
+       INCT R2
+       INC  R4
+       CI   R1,>D4
+       JNE  LIND1A
+       LI   R0,>FF
+       CLR  R1
+       LI   R2,>FF
+       LI   R3,>D3
+LIND1B BLWP @LINE
+       INC  R1
+       DECT R2
+       INC  R4
+       CI   R1,>D4
+       JNE  LIND1B
+       LI   R0,>FF
+       CLR  R1
+       LI   R2,>FF
+       LI   R3,>D3
+LIND1C BLWP @LINE
+       DECT R0
+       DEC  R3
+       INC  R4
+       MOV  R3,R3
+       JNE  LIND1C
+       CLR  R0
+       CLR  R1
+       CLR  R2
+       LI   R3,>D3
+LIND1D BLWP @LINE
+       INCT R0
+       DEC  R3
+       INC  R4
+       MOV  R3,R3
+       JNE  LIND1D
+       BL   @DWAIT
+       DATA 4
+ 
+       LI   R0,6
+       LI   R1,>1F80
+       BL   @GCLEAR
+       CLR  R0
+       CLR  R1
+       CLR  R2
+       LI   R3,>D3
+       CLR  R4
+LIND2A BLWP @LINE
+       INC  R1
+       INCT R2
+       INC  R4
+       CI   R1,>D4
+       JNE  LIND2A
+       LI   R0,>1FF
+       CLR  R1
+       LI   R2,>1FF
+       LI   R3,>D3
+LIND2B BLWP @LINE
+       INC  R1
+       DECT R2
+       INC  R4
+       CI   R1,>D4
+       JNE  LIND2B
+       LI   R0,>1FF
+       CLR  R1
+       LI   R2,>1FF
+       LI   R3,>D3
+LIND2C BLWP @LINE
+       DECT R0
+       DEC  R3
+       INC  R4
+       MOV  R3,R3
+       JNE  LIND2C
+       CLR  R0
+       CLR  R1
+       CLR  R2
+       LI   R3,>D3
+LIND2D BLWP @LINE
+       INCT R0
+       DEC  R3
+       INC  R4
+       MOV  R3,R3
+       JNE  LIND2D
+       BL   @DWAIT
+       DATA 4
+ 
+       LI   R15,4096
+       LI   R0,7
+       LI   R1,>1F80
+       BL   @GCLEAR
+       LI   R0,>000A
+       LI   R1,>0096
+       LI   R2,>0064
+       LI   R3,>000A
+       CLR  R4
+       LI   R5,1
+       MOV  R5,R6
+       MOV  R6,R7
+       MOV  R7,R8
+LIND3A BLWP @LINE
+       INC  R4
+       BL   @CHKEDG
+       DATA 255,211,255,211
+       DEC  R15
+       JNE  LIND3A
+       BL   @DWAIT
+       DATA 4
+ 
+       LI   R15,4096
+       LI   R0,6
+       LI   R1,>1F80
+       BL   @GCLEAR
+       LI   R0,>000A
+       LI   R1,>0096
+       LI   R2,>0064
+       LI   R3,>000A
+       CLR  R4
+       LI   R5,2
+       MOV  R5,R6
+       MOV  R6,R7
+       MOV  R7,R8
+LIND4A BLWP @LINE
+       INC  R4
+       BL   @CHKEDG
+       DATA 511,211,511,211
+       DEC  R15
+       JNE  LIND4A
+       BL   @DWAIT
+       DATA 4
+ 
+       BL   @NOTE
+       DATA BLKSCR
+       LI   R0,7
+       LI   R1,>3F00
+       BL   @GCLEAR
+       BL   @CBTEST
+       CLR  R4
+       LI   R13,4
+       LI   R14,>00FF
+LIND5E DEC  R13
+       JEQ  LIND5F
+LIND5C MOV  R14,@LIND5D
+       BL   @BLINK
+LIND5D DATA 0
+       LI   R15,7
+LIND5A LI   R5,>0100
+       LI   R6,>001F
+       LI   R7,>01BF
+       LI   R8,>00DF
+LIND5B LI   R0,>001F
+       MOV  R5,R1
+       MOV  R6,R2
+       LI   R3,>01BF
+       BLWP @LINE
+       MOV  R6,R0
+       LI   R1,>01BF
+       LI   R2,>00DF
+       MOV  R7,R3
+       BLWP @LINE
+       LI   R0,>00DF
+       MOV  R7,R1
+       MOV  R8,R2
+       LI   R3,>0100
+       BLWP @LINE
+       MOV  R8,R0
+       LI   R1,>0100
+       LI   R2,>001F
+       MOV  R5,R3
+       BLWP @LINE
+       INC  R4
+       INC  R5
+       INC  R6
+       DEC  R7
+       DEC  R8
+       CI   R5,>01C0
+       JNE  LIND5B
+       DEC  R15
+       JNE  LIND5A
+       CI   R14,>0400
+       JEQ  LIND5E
+       AI   R14,->0011
+       JNE  LIND5C
+       LI   R14,>0400
+       JMP  LIND5C
+LIND5F BL   @BLINK
+       DATA 0
+ 
+       BL   @NOTE
+       DATA PSDSCR
+       LI   R13,3
+PSD1A  LI   R0,6
+       LI   R1,>1F80
+       BL   @GCLEAR
+       LI   R10,8192
+       BL   @RND
+       ANDI R15,>01FF
+       MOV  R15,R0
+PSD1B  BL   @RND
+       ANDI R15,>00FF
+       CI   R15,211
+       JGT  PSD1B
+       MOV  R15,R1
+       LI   R5,1
+       MOV  R5,R6
+       LI   R4,15
+PSD1C  BLWP @PSET
+       BL   @CHKEDG
+       DATA 511,211,511,211
+       DEC  R10
+       JNE  PSD1C
+       BL   @DWAIT
+       DATA 4
+       LI   R0,6
+       LI   R1,>1F80
+       BL   @GCLEAR
+       LI   R10,64
+       BL   @RND
+       ANDI R15,>01FF
+       MOV  R15,R0
+PSD1D  BL   @RND
+       ANDI R15,>00FF
+       CI   R15,211
+       JGT  PSD1D
+       MOV  R15,R1
+       LI   R5,1
+       MOV  R5,R6
+       LI   R4,15
+PSD1E  BL   @RND
+       ANDI R15,>00FF
+       MOV  R15,R9
+PSD1F  BLWP @PSET
+       BL   @CHKEDG
+       DATA 511,211,511,211
+       DEC  R9
+       JNE  PSD1F
+PSD1G  BL   @RND
+       SRL  R15,14
+       JEQ  PSD1G
+       DECT R15
+       MOV  R15,R5
+PSD1H  BL   @RND
+       SRL  R15,14
+       JEQ  PSD1G
+       DECT R15
+       MOV  R15,R6
+       DEC  R10
+       JNE  PSD1E
+       BL   @DWAIT
+       DATA 4
+       DEC  R13
+       JNE  PSD1A
+       LI   R1,211
+PSD2A  LI   R0,511
+PSD2B  BL   @RND
+       SRL  R15,12
+       MOV  R15,R4
+       BLWP @PSET
+       DEC  R0
+       JOC  PSD2B
+       DEC  R1
+       JOC  PSD2A
+       BL   @DWAIT
+       DATA 4
+ 
+*************************************************************
+*0=Temp,X1           DEMOWS|8 =Changer Y2                   *
+*1=Temp,Y1                 |9 =Line Color (new),temp        *
+*2=Temp,X2                 |10=Count from 4 to 1,temp       *
+*3=Temo,Y2                 |11=Return address for BL'S,Temp *
+*4=Line Color (old)        |12=XY pointer                   *
+*5=Changer X1     DEMOWS+10|13=XY changer pointer           *
+*6=Changer Y1              |14=Edge pointer                 *
+*7=Changer X2              |15=Temp,RNDNO                   *
+*************************************************************
+SART   BL   @NOTE
+       DATA ARTNTE
+SART1A BL   @RND
+       DECT @BOXLIN
+       JGT  SART1B
+       JEQ  SART1B
+       LI   R15,4
+       MOV  R15,@BOXLIN
+SART1B LI   R15,32
+       MOV  R15,@NUMART
+       LI   R9,>000F
+S6     BL   @DWAIT
+       DATA 4
+       DEC  @NUMART
+       JNE  S6A
+       B    @RERUN
+ 
+S6A    LI   R0,6
+       LI   R1,>1F80
+       BL   @GCLEAR
+       MOV  @ARTSCR,R0
+       BLWP @VWTR
+       MOV  @SEED,@SAVRND
+S6B    BL   @SETUP
+AA     BL   @RND
+       SRL  R15,7               0-511
+       C    R15,*R14
+       JGT  AA
+       MOV  R15,*R12
+AB     BL   @RND
+       SRL  R15,12              0-15
+       CI   R15,9
+       JGT  AB
+       JLT  AC
+       LI   R15,6
+AC     CI   R15,8
+       JNE  AD
+       LI   R15,3
+AD     MOV  R15,*R13
+       BL   @RND
+       SRL  R15,15              0-1
+       JEQ  AE
+       NEG  *R13
+AE     BL   @DA
+       JGT  AA
+       BL   @RND
+       SRL  R15,12              0-15
+       MOV  R15,@ARTSCR
+       BL   @RND
+       SRL  R15,12              0-15
+       JEQ  AF
+       BL   @RND
+       SRL  R15,13              0-7
+       MOV  R15,@ARTSCR
+       CI   R15,5
+       JEQ  AF
+       CLR  @ARTSCR
+AF     MOVB @FIVE,@ARTSCR
+       BL   @RND
+       C    @BOXLIN,@FOUR
+       JNE  AF1
+       SRL  R15,8
+       AI   R15,63              63-319
+       JMP  AF1A
+AF1    SRL  R15,10
+       AI   R15,16              16-79
+AF1A   MOV  R15,@NUMLIN
+       BL   @RND
+       SRL  R15,14              0-3
+       MOV  R15,@SART1
+       BL   @RND
+       SRL  R15,14              0-3
+       JNE  AF2A
+       LI   R11,BC           <--0
+       JMP  AF3
+AF2A   LI   R11,BA           <--ALL OTHERS
+AF3    MOV  @BOXLIN,R15
+       JGT  AF3A
+       JEQ  AF3A
+       MOV  @NXTRND,@SEED
+AF3A   RT
+ 
+BA     BL   @SETUP
+BB     BL   @CAL
+       JGT  BB
+       BL   @PLOT
+       JGT  BA
+ 
+NXTART MOV  @SEED,@NXTRND
+       MOV  @BOXLIN,R15
+       JGT  NTART1
+       INV  @BOXLIN
+       JNE  NTART2
+NTART1 B    @S6
+NTART2 MOV  @SAVRND,@SEED
+       B    @S6B
+ 
+ 
+BC     CLR  @STOPS
+BD     BL   @SETUP
+       MOV  @STOPS,@STOPS
+       JGT  BF
+       BL   @RND
+       SRL  R15,14
+       INC  R15
+       MOV  R15,@DONT
+       BL   @RND
+       SRL  R15,15
+       JEQ  BE
+       LI   R15,7
+       JMP  BE1
+BE     LI   R15,14
+BE1    MOV  R15,@STOPS
+BF     C    R10,@DONT
+       JEQ  CA
+       BL   @CAL
+       JMP  CB
+CA     DEC  @STOPS
+       BL   @DA
+CB     JGT  BF
+       BL   @PLOT
+       JGT  BD
+       JMP  NXTART
+ 
+CAL    A    *R13,*R12
+       C    *R12,*R14
+       JLE  DA
+CC     NEG  *R13
+       C    @SART1,@ONE
+       JLT  CAL
+       C    @ARTSCR,@FIVE
+       JEQ  CF
+       MOV  R11,R9
+C1     BL   @RND
+       SRL  R15,12
+       CI   R15,2
+       JLT  C1
+       MOV  R9,R11
+       MOV  R15,R9
+       JMP  CAL
+CF     LI   R9,>000A
+       JMP  CAL
+DA     INCT R12
+       INCT R13
+       INCT R14
+       DEC  R10
+       RT
+SETUP  LI   R12,DEMOWS
+       LI   R13,DEMOWS+10
+       LI   R14,EDGE
+       LI   R10,4
+       RT
+PLOT   C    @BOXLIN,@FOUR
+       JEQ  PLOT3
+       MOV  @BOXLIN,R15
+       JLT  PLOT3
+       C    R9,R4
+       JEQ  PLOT2
+       MOV  R9,R4
+PLOT1  BLWP @BOX
+       JMP  PLOT4
+PLOT2  INC  R4
+       JMP  PLOT1
+PLOT3  MOV  R9,R4
+       BLWP @LINE
+PLOT4  DEC  @NUMLIN
+       RT
+ 
+*****************************
+* GET A RANDOM NUMBER       *
+*****************************
+RND    LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       RT
+ 
+*****************************
+* Delay/Wait for some time  *
+*****************************
+DWAIT  MOV  *R11+,R1
+       MOV  R11,@DWAIT5+2
+       BL   @VWAIT
+       MOV  R1,R2
+DWAIT1 MOVB R2,@TIMER
+DWAIT2 BL   @RND
+       BLWP @KSCAN
+       CLR  R0
+       MOVB @STATUS,R0
+       JNE  DWAIT3
+       LIMI 2
+       LIMI 0
+       CB   @TIMER,@DEC60
+       JLT  DWAIT2
+       DEC  R2
+       JNE  DWAIT1
+DWAIT3 CB   @KEYVAL,@SPACE
+       JNE  DWAIT5
+DWAIT5 B    @>0000
+ 
+*****************************
+* Clears Graphics Screen    *
+*****************************
+GCLEAR MOV  R11,@GCLAR2+2
+       BLWP @VMODE
+       SRL  R1,13
+       SLA  R1,8
+       MOV  R1,R3
+       LI   R2,>00FF
+       CI   R0,6
+       JNE  GCLAR1
+       LI   R2,>01FF
+GCLAR1 LI   R0,>0103
+       BLWP @VWTR
+       CLR  R0
+       AI   R3,>00D3
+       CLR  R4
+       BLWP @BOX
+       BL   @VWAIT
+       LI   R0,>0163
+       BLWP @VWTR
+GCLAR2 B    @>0000
+ 
+*****************************
+* Check Edges ,Neg if over  *
+*****************************
+CHKEDG A    R5,R0
+       C    R0,*R11
+       JLE  CKEDG1
+       NEG  R5
+       JMP  CHKEDG
+CKEDG1 A    R6,R1
+       C    R1,@2(R11)
+       JLE  CKEDG2
+       NEG  R6
+       JMP  CKEDG1
+CKEDG2 A    R7,R2
+       C    R2,@4(R11)
+       JLE  CKEDG3
+       NEG  R7
+       JMP  CKEDG2
+CKEDG3 A    R8,R3
+       C    R3,@6(R11)
+       JLE  CKEDG4
+       NEG  R8
+       JMP  CKEDG3
+CKEDG4 B    @8(R11)
+ 
+*****************************
+* Wiggles any Screen        *
+*****************************
+WIGGLE MOV  *R11+,R15         TOTAL LENGTH OF WIGGLEY
+WIGLE0 LI   R0,>1207
+WIGLE1 BLWP @VWTR
+       DEC  R0
+       CI   R0,>11FF
+       JNE  WIGLE2
+       LI   R0,>120F
+       JMP  WIGLE1
+WIGLE2 CI   R0,>1207
+       JNE  WIGLE1
+       LI   R0,>1208
+WIGLE3 BLWP @VWTR
+       INC  R0
+       CI   R0,>1210
+       JNE  WIGLE4
+       LI   R0,>1200
+       JMP  WIGLE3
+WIGLE4 CI   R0,>1208
+       JNE  WIGLE3
+       DEC  R15
+       JNE  WIGLE0
+       LI   R0,>1200
+       BLWP @VWTR
+       RT
+ 
+*******************  01234567|89AB|CDEF  ms = D*166.88
+* Sets up BLINKer *  R9 DATA |EVEN|ODD
+*******************                     D= ms      D= ms
+BLINK  LI   R0,9     GET VDP OUTPUT     0= 0       8= 1335.1
+       MOVB *R11+,R0 INTO R9            1= 166.9   9= 1501.9
+       SWPB R0                          2= 333.8   A= 1668.8
+       BLWP @VWTR                       3= 500.6   B= 1835.7
+       LI   R0,13    GET BLINK RATE     4= 667.5   C= 2002.6
+       MOVB *R11+,R0 INTO R13           5= 834.4   D= 2169.5
+       SWPB R0                          6= 1001.3  E= 2336.3
+       BLWP @VWTR                       7= 1168.2  F= 2503.2
+       RT            RTED
+ 
+*****************************
+* DISPLAYS A NOTE 16*8 BIG  *
+*****************************
+NOTE   MOV  *R11+,@NOTE1
+       MOV  R11,@NOTE4+2
+       LI   R0,6
+       LI   R1,>1F00
+       BL   @GCLEAR
+       BL   @VWAIT
+       BLWP @CLRSPD
+       BLWP @WRTSPD
+NOTE1  DATA >0000
+       BLWP @SPDON
+       LI   R2,>0003
+NOTE2  MOVB R2,@TIMER
+NOTE3  LIMI 2
+       LIMI 0
+       CB   @TIMER,@DEC60
+       JLT  NOTE3
+       DEC  R2
+       JNE  NOTE2
+       BLWP @SPDOFF
+NOTE4  B    @>0000
+ 
+ 
+**********************************
+* Display Color Box Test Pattern *
+**********************************
+CBTEST CLR  R0
+       CLR  R1
+       LI   R2,>0039
+       LI   R3,>00AB
+       LI   R4,>00FF
+       BLWP @BOX
+       LI   R0,>003A
+       CLR  R1
+       LI   R2,>008F
+       LI   R3,>00AB
+       LI   R4,>00BB
+       BLWP @BOX
+       LI   R0,>0090
+       CLR  R1
+       LI   R2,>00E0
+       LI   R3,>00AB
+       LI   R4,>00EE
+       BLWP @BOX
+       LI   R0,>00E1
+       CLR  R1
+       LI   R2,>0131
+       LI   R3,>00AB
+       LI   R4,>0022
+       BLWP @BOX
+       LI   R0,>0132
+       CLR  R1
+       LI   R2,>017F
+       LI   R3,>00AB
+       LI   R4,>00DD
+       BLWP @BOX
+       LI   R0,>0180
+       CLR  R1
+       LI   R2,>01CB
+       LI   R3,>00AB
+       LI   R4,>0088
+       BLWP @BOX
+       LI   R0,>01CC
+       CLR  R1
+       LI   R2,>01FF
+       LI   R3,>00AB
+       LI   R4,>0055
+       BLWP @BOX
+       CLR  R0
+       LI   R1,>00AC
+       LI   R2,>004D
+       LI   R3,>00D3
+       LI   R4,>0044
+       BLWP @BOX
+       LI   R0,>00AC
+       LI   R1,>00D3
+       LI   R2,>004E
+       LI   R3,>00AC
+       LI   R4,>00FF
+       BLWP @BOX
+       LI   R0,>00AD
+       LI   R1,>00AC
+       LI   R2,>010C
+       LI   R3,>00D3
+       LI   R4,>0055
+       BLWP @BOX
+       RT
+ 
+************************************
+* BRING IN COMMON LIBRARY ROUTINES *
+************************************
+       COPY "DSK7.EA-LIB"
+       COPY "DSK7.VDP-LIB"
+       EVEN
+*
+* ALL DATA AT END OF PROGRAM
+*
+ONE    DATA 1
+FOUR   DATA 4
+FIVE   DATA >0705
+STOPS  DATA 0
+DONT   DATA 0
+BOXLIN DATA 6
+NUMLIN DATA 0
+SART1  DATA 0
+ARTSCR DATA >0705
+NUMART DATA 0
+SAVRND DATA 0
+NXTRND DATA 0
+SPACE  DATA >2000
+EDGE   DATA 511,211,511,211   X1,Y1 , X2,Y2
+TITSCR DATA LN01,>C00,0
+BOXSCR DATA LN03,>F00,BOXLN1,>E20,0
+LINSCR DATA LN03,>F00,LINLN1,>E20,0
+BLKSCR DATA LN03,>F00,BLKLN1,>E20,0
+PSDSCR DATA LN03,>F00,PSDLN1,>E20,0
+ARTNTE DATA LN03,>F00,ARTLN1,>E20,LN02,>740,0
+LN01   TEXT ' TIM/AVPC V9938 '
+       TEXT '                '
+       TEXT ' GRAPHICS  DEMO '
+       TEXT '                '
+LN02   TEXT 'Copyrighted 1988'
+       TEXT ' By Gary Bowser '
+       TEXT '                '
+       TEXT '  v1.00.88.OPA  '
+       BYTE 0
+LN03   TEXT 'TIMAVPC9938 DEMO'
+       BYTE 0
+BOXLN1 TEXT '     BOXs       '
+       BYTE 0
+LINLN1 TEXT ' LINE PATTERNS  '
+       TEXT 'in 512*212  and '
+       TEXT 'also in 256*212 '
+       BYTE 0
+BLKLN1 TEXT '   AUTO-BLINK   '
+       TEXT ' from 2503.2 ms '
+       TEXT ' to   166.9  ms '
+       TEXT ' or 60hz blink! '
+       BYTE 0
+PSDLN1 TEXT '  RANDOM  DOTS  '
+       BYTE 0
+ARTLN1 TEXT ' 3D  STRING-ART '
+       BYTE 0
+DEC60  BYTE 60
+       EVEN
+*
+* End of Program
+*
+SLAST  EQU  $
+       EVEN
+*
+* Buffers and Workspaces after file image
+*
+DEMOWS BSS  32
+RNDNUM BSS  2
+*
+* THAT IS ALL FOLKS!
+*
+       END

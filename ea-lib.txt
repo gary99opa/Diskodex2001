@@ -1,0 +1,141 @@
+**********************************************************
+* EA-LIB      v1.00.04/11/84  Editor/Assembler Utilities *
+*                                                        *
+* Public Source Code - No Credit Needed For This Library *
+*                                                        *
+**********************************************************
+ 
+VDPWS  EQU  >8300   (Note in PAD)  Workspace for some OTHERS
+UTILWS EQU  >8320   (Note in PAD)  Workspace for some UTIL's
+ 
+FAC    EQU  >834A
+KEYVAL EQU  >8375
+TIMER  EQU  >8379
+STATUS EQU  >837C
+SEED   EQU  >83C0
+VDPR1  EQU  >83D4
+GPLWS  EQU  >83E0
+ 
+SOUND  EQU  >8400   Sound Chip Port
+ 
+VDPRD  EQU  >8800   READ  PORT #0  Read data
+VDPSTA EQU  >8802   READ  PORT #1  Read status
+ 
+VDPWD  EQU  >8C00   WRITE PORT #0  Write data
+VDPWA  EQU  >8C02   WRITE PORT #1  Write address
+VDPWP  EQU  >8C04   WRITE PORT #2  Write pallete
+VDPWC  EQU  >8C06   WRITE PORT #3  Write control
+ 
+*
+* REF VSBR,VSBW,VMBR,VMBW,KSCAN,GPLLNK
+*
+* NOT INCLUDED > DSRLNK
+*
+* ADDED > VWTR (Video Write To Register)
+*
+ 
+********************************* REGS PASSED= R0 VDP RAM ADDRESS
+* VSBR = Video Single Byte Read *              R1 MSByte = DATA BYTE
+*********************************
+VSBR   DATA UTILWS,VSBR1
+VSBR1  BL   @VDPSRA
+       MOVB @VDPRD,@2(R13)
+       RTWP
+ 
+********************************* REGS PASSED= R0 VDP RAM ADDRESS
+* VSBW = Video Single Byte Write*              R1 MSByte = DATA BYTE
+*********************************
+VSBW   DATA UTILWS,VSBW1
+VSBW1  BL   @VDPSWA
+       MOVB R1,@VDPWD
+       RTWP
+ 
+********************************* REGS PASSED= R0 VDP RAM ADDRESS
+* VMBR = Video Multi Byte Read  *              R1 CPU RAM ADDRESS
+*********************************              R2 LENGTH OF READ
+VMBR   DATA UTILWS,VMBR1
+VMBR1  BL   @VDPSRA
+VMBR2  MOVB @VDPRD,*R1+
+       DEC  R2
+       JNE  VMBR2
+       RTWP
+ 
+********************************* REGS PASSED= R0 VDP RAM ADDRESS
+* VMBW = Video Multi Byte Write *              R1 CPU RAM ADDRESS
+*********************************              R2 LENGTH OF WRITE
+VMBW   DATA UTILWS,VMBW1
+VMBW1  BL   @VDPSWA
+VMBW2  MOVB *R1+,@VDPWD
+       DEC  R2
+       JNE  VMBW2
+       RTWP
+ 
+********************************* REGS PASSED= R0 MSByte = VDP REG #
+* VWTR = Video Write to Register*                 LSByte = DATA BYTE
+*********************************
+VWTR   DATA UTILWS,VWTR1
+VWTR1  BL   @VDPSWR
+       RTWP
+ 
+VDPSWR MOV  *R13,R0           USE BY ALL THE ABOVE VIDEO BLWP's
+       ORI  R0,>8000
+       JMP  VDPGO
+VDPSWA MOV  *R13,R0
+VDPSTW ORI  R0,>4000
+       JMP  VDPGO
+VDPSRA MOV  *R13,R0
+VDPGO  MOVB @UTILWS+1,@VDPWA
+       MOVB R0,@VDPWA
+       MOV  @2(R13),R1
+       MOV  @4(R13),R2
+       RT
+ 
+*************************     ENTRY WITH A BLWP, NO DATA/REGS PASSED
+* KSCAN = Keyboard SCAN *
+*************************
+KSCAN  DATA UTILWS,KSCAN1     blwp vectors
+KSCAN1 LIMI 2
+       LIMI 0
+       LI   R0,>4000          mask bits for screen on
+       SZCB @VDPR1,R0         leaves r0 = 0 if screen on, <> 0 if off
+       LWPI GPLWS             switch to gpl workspace for keyscan
+       BL   @>000E            run keyboard scan in console rom
+       LWPI UTILWS            switch back to original workspace
+       MOV  R0,R0             check if screen was on before keyscan
+       JEQ  KSCAN2            if so, return key press as is
+       SETO R0                (return a >FF if screen was blank)
+       MOVB R0,@KEYVAL        else return a false no key instead
+       CLR  @STATUS           make status a non-new key press
+KSCAN2 RTWP                   RETURN TO CALLING PROGRAM
+ 
+***************************
+* NORMAL OPA GPLLNK V1.00 *
+***************************
+GR4    EQU  GPLWS+8           GPL workspace R4
+GR6    EQU  GPLWS+12          GPL workspace R6
+STKPNT EQU  >8373             GPL Stack pointer
+LDGADD EQU  >60               Load & Execute GROM address entry point
+XTAB27 EQU  >200E             Low Mem XML table location 27
+GETSTK EQU  >166C
+GPLLNK DATA GLNKWS R7         Set up BLWP vectors
+       DATA GLINK1 R8
+RTNAD  DATA XMLRTN R9         Address where GPL XML returns to us
+GXMLAD DATA >176C  R10        GROM Address for GPL XML (0F 27 Opcode)
+       DATA >50    R11        Initialized to >50 where PURSTK address is
+GLNKWS EQU  $->18             GPLLNK's workspace of which only
+       BSS  >08    R12-R15    registers R7 through r15 are used
+GLINK1 MOV  *R11,@GR4         Put PURSTK Address into R4 of GPL WS
+       MOV  *R14+,@GR6        Put GPL Routine Address in R6 of GPL WS
+       MOV  @XTAB27,R12       Save the value at >200E
+       MOV  R9,@XTAB27        Put XMLRTN Address into >200E
+       CLR  @STATUS         * CLEAR GPL STATUS
+       LWPI GPLWS             Load GPL WS
+       BL   *R4               Save current Grom Address on stack
+       MOV  @GXMLAD,@>8302(R4) Push GPL XML A dd on stack for GPL RTurn
+       INCT @STKPNT           Adjust the stack pointer
+       B    @LDGADD           Execute our GPL Routine
+XMLRTN MOV  @GETSTK,R4        Get GETSTK pointer
+       BL   *R4               Restore GROM address off the stack
+       LWPI GLNKWS            Load our WS
+       MOV  R12,@XTAB27       Restore >200E
+       RTWP                   ALL Done - Return to Caller

@@ -1,0 +1,459 @@
+****************************************************************
+* ART-S       v1.00.08/01/90  TIM/AVPC 3D STRING ART BY O.P.A. *
+****************************************************************
+*                                                              *
+* Source Published: 04/11/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1990 by Gary Bowser from Oasis Pensive Abacutors *
+*                                                              *
+* Credit Must Be Given If Any Part Of This Source Code Is Used *
+*                                                              *
+****************************************************************
+       TITL '9938/9958 GAT! 3D-SA by Gary Bowser'
+       IDT  'ART v1.0'
+       DEF  SFIRST,START,SLAST
+       AORG >A050
+SFIRST EQU  $
+ 
+*************************************************************
+*0=Temp,X1           DEMOWS|8 =Changer Y2                   *
+*1=Temp,Y1                 |9 =Number of lines left         *
+*2=Temp,X2                 |10=Count from 4 to 1,temp       *
+*3=Temo,Y2                 |11=Return address for BL'S,Temp *
+*4=Line Color              |12=XY pointer                   *
+*5=Changer X1     DEMOWS+10|13=XY changer pointer           *
+*6=Changer Y1              |14=Edge pointer                 *
+*7=Changer X2              |15=Temp,RNDNO                   *
+*************************************************************
+START  LIMI 0
+       LWPI DEMOWS
+*
+* Load Character Sets
+*
+       LI   R0,>1000
+       MOV  R0,@FAC
+       BLWP @GPLLNK
+       DATA >18
+       AI   R0,512
+       MOV  R0,@FAC
+       BLWP @GPLLNK
+       DATA >4A
+       LI   R0,>1000
+       LI   R1,SPDCHR+256
+       LI   R2,768
+       BLWP @VMBR
+*
+* Setup and Display Title Screen
+*
+       LI   R0,>0700
+       BLWP @VWTR
+       LI   R0,6
+       LI   R1,>1F80
+       BL   @GCLROF
+       BLWP @CLRSPD
+       BLWP @WRTSPD
+       DATA ARTNTE
+       BLWP @SPDON
+       BL   @DWAIT
+       DATA 4
+       BLWP @SPDOFF
+       B    @GOART
+ 
+NXTART MOV  R4,@SVCOLR
+       BL   @DWAIT
+PDEL   DATA 4
+       CB   R0,@ENTER
+       JNE  GOART
+ 
+       BLWP @CLRSPD
+       BLWP @NXTNUM
+       DATA SVSEED,SEEDLN,4
+       BLWP @NXTNUM
+       DATA PDEL,PDELLN,4
+       BLWP @NXTNUM
+       DATA LDEL,LDELLN,4
+       BLWP @WRTSPD
+       DATA ARTMNU
+       BLWP @SPDON
+MENU0  BLWP @KSCAN
+       CB   @KEYVAL,R0
+       JEQ  MENU0
+MENU   BLWP @KSCAN
+       LI   R0,2000
+MENU1  DEC  R0
+       JNE  MENU1
+       LI   R1,KEYTBL
+MENU2  MOV  *R1+,R11
+       JEQ  MENU
+       INC  R1
+       CB   *R1+,@KEYVAL
+       JNE  MENU2
+       RT
+ 
+SEEDPC INCT @SVSEED
+SEEDMC DEC  @SVSEED
+       BLWP @NXTNUM
+       DATA SVSEED,SEEDLN,4
+       BLWP @WRTSPD
+       DATA ARTSED
+       JMP  MENU
+ 
+PDELPC INCT @PDEL
+PDELMC DEC  @PDEL
+       BLWP @NXTNUM
+       DATA PDEL,PDELLN,4
+       BLWP @WRTSPD
+       DATA ARTPDL
+       JMP  MENU
+ 
+LDELPC INCT @LDEL
+LDELMC DEC  @LDEL
+       BLWP @NXTNUM
+       DATA LDEL,LDELLN,4
+       BLWP @WRTSPD
+       DATA ARTLDL
+       JMP  MENU
+ 
+MODEC  MOV  @MODE,R1
+       INCT R1
+MODEC0 MOV  @MDETBL(R1),@ARTMDE
+       JNE  MODEC1
+       CLR  R1
+       JMP  MODEC0
+MODEC1 MOV  R1,@MODE
+       BLWP @WRTSPD
+       DATA ARTMDE
+       JMP  MENU
+ 
+ENTERC MOV  @SVSEED,@SEED
+       BLWP @SPDOFF
+ 
+GOART  MOV  @MODE,R2 -------> 0 = NG6 / 1 = fast NG6 (LDEL=0)
+       MOV  @LDEL,R0          2 = NG7 / 3 = fast NG7 (LDEL=0)
+       JNE  GOART1
+       INC  R2
+GOART1 SLA  R2,2
+       MOV  @SETMDE(R2),R0    Get a >0006 or >0007
+       MOV  @SETMDE+2(R2),R1  Get a >1F80 or >3F80
+       CLR  @PAGE             PAGE = >0000 for no page shift
+       LI   R10,GCLROF        Clear screen with screen off
+       CB   R1,@EVEN          Check if in mode 0 or 2
+       JEQ  GOART2            Yep, so switch to correct mode
+       LI   R10,GCLRON        Clear screen with screen on
+       SWPB @SWPAGE           Get the next page value
+       MOVB @SWPAGE,R1        Switch the display to new page
+       CB   R1,@ODD           Check if odd page
+       JEQ  GOART2            Yep, so don't page shift!
+       SETO @PAGE             PAGE = >FFFF if page shift needed
+GOART2 LI   R14,EDGEG6        Point to modes 0 and 1 edge table
+       CI   R0,>0006          Check if in mode 0 or 1
+       JEQ  GOART3            Yep,  so use the G6 edge table
+       LI   R14,EDGEG7        Nope, so use the G7 edge table
+GOART3 MOV  R14,@EDGEC+2      Make SETUP point to the right table
+       BL   *R10              Switch to the new mode
+ 
+       MOV  @SEED,@SVSEED     Save this picture seed value
+       MOV  @SVCOLR,R4        Restore the current color
+       BL   @SETUP            Setup the common values
+AA     BL   @RND              Fetch a random value
+       SRL  R15,7             0-511
+       C    R15,*R14          Check if pass the edge
+       JGT  AA                Yep, so get a lower value
+       MOV  R15,*R12          Save this starting XY value
+AB     BL   @RND              Fetch a random value
+       SRL  R15,12            0-15
+       CI   R15,9
+       JGT  AB
+       JLT  AC
+       LI   R15,6
+AC     CI   R15,8
+       JNE  AD
+       LI   R15,3
+AD     MOV  R15,*R13
+       BL   @RND
+       SRL  R15,15            0-1
+       JEQ  AE
+       NEG  *R13
+AE     BL   @DA
+       JGT  AA
+       BL   @RND
+       SRL  R15,8
+       AI   R15,63            63-319
+       MOV  R15,R9
+       BL   @RND
+       SRL  R15,14            0-3
+       MOV  R15,@SART1
+       BL   @RND
+       SRL  R15,14            0-3
+       JEQ  BC             <--0 THEN BC
+ 
+BA     BL   @SETUP            ALL OTHERS
+BB     BL   @CAL
+       JGT  BB
+       ABS  @PAGE             Check page control
+       JNE  BASPLT            If >FFFF then shift  plot
+       BLWP @LINE             If >0000 then normal plot
+       JMP  BAEPLT            Done, exit to delay loop
+BASPLT AI   R1,256            Point to odd page
+       AI   R3,256            Point to odd page
+       BLWP @LINE             Do a shifted plot
+       AI   R1,-256           Point to even page
+       AI   R3,-256           Point to even page
+BAEPLT MOV  @LDEL,R15         Check for a delay
+       JEQ  BAPEND            Nope, so exit ploter
+BAPDEL DEC  R15               Check if delay is finished
+       JNE  BAPDEL            Nope, so delay some more
+BAPEND DEC  R9                Count down the lines ploted
+       JGT  BA
+       B    @NXTART
+ 
+BC     CLR  @STOPS
+BD     BL   @SETUP
+       MOV  @STOPS,@STOPS
+       JGT  BF
+       BL   @RND
+       SRL  R15,14
+       INC  R15
+       MOV  R15,@DONT
+       BL   @RND
+       SRL  R15,15
+       JEQ  BE
+       LI   R15,7
+       JMP  BE1
+BE     LI   R15,14
+BE1    MOV  R15,@STOPS
+BF     C    R10,@DONT
+       JEQ  CA
+       BL   @CAL
+       JMP  CB
+CA     DEC  @STOPS
+       BL   @DA
+CB     JGT  BF
+       ABS  @PAGE             Check page control
+       JNE  BCSPLT            If >FFFF then shift  plot
+       BLWP @LINE             If >0000 then normal plot
+       JMP  BCEPLT            Done, exit to delay loop
+BCSPLT AI   R1,256            Point to odd page
+       AI   R3,256            Point to odd page
+       BLWP @LINE             Do a shifted plot
+       AI   R1,-256           Point to even page
+       AI   R3,-256           Point to even page
+BCEPLT MOV  @LDEL,R15         Check for a delay
+       JEQ  BCPEND            Nope, so exit ploter
+BCPDEL DEC  R15               Check if delay is finished
+       JNE  BCPDEL            Nope, so delay some more
+BCPEND DEC  R9                Count down the lines ploted
+       JGT  BD
+       B    @NXTART
+ 
+CAL    A    *R13,*R12
+       C    *R12,*R14
+       JLE  DA
+CC     NEG  *R13
+       C    @SART1,@ONE
+       JLT  CAL
+       MOV  R11,@C1RT+2
+C1     BL   @RND
+       SRL  R15,8
+       MOV  @MODE,@MODE
+       JNE  C2
+       SRL  R15,4
+C2     CI   R15,2
+       JLT  C1
+C1RT   LI   R11,>0000
+       MOV  R15,R4
+       JMP  CAL
+DA     INCT R12
+       INCT R13
+       INCT R14
+       DEC  R10
+       RT
+ 
+*****************************
+* Setup common startup regs *
+*****************************
+SETUP  LI   R12,DEMOWS
+       LI   R13,DEMOWS+10
+EDGEC  LI   R14,>0000
+       LI   R10,4
+       RT
+ 
+*****************************
+* Get a random number       *
+*****************************
+RND    LI   R15,28645
+       MPY  @SEED,R15
+       MOV  @RNDNUM,R15
+       AI   R15,31417
+       MOV  R15,@SEED
+       RT
+ 
+*****************************
+* Delay/Wait/Menu control   *
+*****************************
+DWAIT  MOV  *R11+,R2
+       MOV  R11,@DWAIT3+2
+       BL   @VWAIT
+DWAIT1 BLWP @KSCAN
+       MOVB @KEYVAL,R0
+       JGT  DWAIT3
+       MOV  R2,R2
+       JEQ  DWAIT3
+       MOVB R2,@TIMER
+DWAIT2 LIMI 2
+       LIMI 0
+       CB   @TIMER,@DEC60
+       JLT  DWAIT2
+       DEC  R2
+       JNE  DWAIT1
+DWAIT3 B    @>0000
+ 
+*****************************
+* Clears Graphics Screen    *
+*****************************
+GCLROF MOV  R11,@GCLRTF+2     Save return address
+       BLWP @VMODE            Switch to the right mode
+       LI   R2,>00FF          256 wide clear for G7 mode
+       CI   R0,6              Check if G6 mode
+       JNE  GCLRF0            Nope, so use the 256 wide clear
+       LI   R2,>01FF          Yep, so switch to the 512 wide clear
+GCLRF0 LI   R0,>0103          VDP R1 value for screen disable
+       BLWP @VWTR             WRITE A VDP REG.
+       CLR  R0                Start clear at top-left X corner
+       CLR  R1                Start clear at top-left Y corner
+       LI   R3,>00D3          End   clear at bottom-right corner
+       CLR  R4                Fill box with backdrop color
+       BLWP @BOX              If >0000 then normal clear
+       BL   @VWAIT            Wait until clear is finished
+       LI   R0,>0163          VDP R1 value for screen enable
+       BLWP @VWTR             WRITE A VDP REG.
+GCLRTF B    @>0000            RETURN TO THE CALLING PROGRAM
+ 
+GCLRON BLWP @VMODE            Switch to the right mode
+       LI   R2,>00FF          256 wide clear for G7 mode
+       CI   R0,6              Check if G6 mode
+       JNE  GCLRO0            Nope, so use the 256 wide clear
+       LI   R2,>01FF          Yep, so switch to the 512 wide clear
+GCLRO0 CLR  R0                Start clear at top-left X corner
+       CLR  R1                Start clear at top-left Y corner
+       LI   R3,>00D3          End   clear at bottom-right corner
+       CLR  R4                Fill box with backdrop color
+       ABS  @PAGE             Check if page shift needed
+       JEQ  GCLRO1            Nope, so skip over shifter
+       AI   R1,256            Point to odd page
+       AI   R3,256            Point to odd page
+GCLRO1 BLWP @BOX              Do a shifted clear
+       RT                     RETURN TO CALLING PROGRAM
+ 
+********************************** DATA PASSED: Number address (word)
+* Convert NUMBER TO ASCII   BLWP *              Buffer address (word)
+**********************************              Max. length    (word)
+NXTNUM DATA VDPWS,NXTNM1
+NXTNM1 MOV  *R14+,R6
+       MOV  *R14,@NXTNUO+2
+       MOV  *R14+,@NXTNUQ+2
+       MOV  *R14+,R8
+       MOV  *R6,R6
+       LI   R1,>2000
+NXTNUP CLR  R5
+       DIV  @DEC10,R5         Divide by 10
+       A    @DEC48,R6         Add ASCII offset to remainder
+       SLA  R6,8              Shift to MSB
+NXTNUO MOVB R6,@>0000(R8)     Move to display buffer
+       DEC  R8                * Check if at end
+       JNC  NXTRT             *
+       MOV  R5,R6             *
+       JEQ  NXTNUQ
+       JMP  NXTNUP            No ? do more
+NXTNUQ MOVB R1,@>0000(R8)
+       DEC  R8
+       JNC  NXTRT
+       JMP  NXTNUQ
+NXTRT  RTWP
+ 
+************************************
+* BRING IN COMMON LIBRARY ROUTINES *
+************************************
+       COPY "DSK7.EA-LIB"
+       COPY "DSK7.VDP-LIB"
+       EVEN
+*
+* ALL DATA AT END OF PROGRAM
+*
+STOPS  DATA 0
+DONT   DATA 0
+SART1  DATA 0
+LDEL   DATA 1                 Delay between lines
+SVSEED DATA 0                 Saved starting seed value
+PAGE   DATA 0                 Current display page
+MODE   DATA 0                 Current display mode
+ 
+ONE    DATA 1
+FOUR   DATA 4
+DEC10  DATA 10
+DEC48  DATA 48
+SWPAGE DATA >1F3F             MSByte = SHOW page / DRAW page
+SVCOLR DATA >00FF             Saved starting color value
+EDGEG6 DATA 511,211,511,211   Edge X1,Y1 ; X2,Y2 for G6 modes
+EDGEG7 DATA 255,211,255,211   Edge X1,Y1 ; X2;Y2 for G7 modes
+ARTNTE DATA LN01,>F00,0       Display title screen
+ARTMNU DATA LN02,>F00         Display menu screen
+       DATA SEEDLN,>F2B,PDELLN,>F3B,LDELLN,>F4B
+ARTMDE DATA MNG6LN,>F75,0     Update MODE display
+ARTSED DATA SEEDLN,>F2B,0     Update SEED display
+ARTPDL DATA PDELLN,>F3B,0     Update PDEL display
+ARTLDL DATA LDELLN,>F4B,0     Update LDEL display
+KEYTBL DATA LDELPC,'[',LDELMC,']'
+       DATA SEEDPC,'<',SEEDMC,'>'
+       DATA PDELPC,'{',PDELMC,'}'
+       DATA MODEC,'M',ENTERC,13,0
+MDETBL DATA MNG6LN,MNG7LN,0
+SETMDE DATA >0006,>1F80,>0006,>3F80,>0007,>1F80,>0007,>3F80
+ 
+LN01   TEXT '>>>>> GAT! <<<<<'
+       TEXT '                '
+       TEXT ' 3D  STRING-ART '
+       TEXT '                '
+       TEXT 'Copyrighted 1990'
+       TEXT ' By Gary Bowser '
+       TEXT '                '
+       TEXT '  v1.00.90.OPA  '
+       BYTE 0
+LN02   TEXT 'GAT-3D-SA   MENU'
+       TEXT '                '
+       TEXT '<,> = SEED      '
+       TEXT '{,} = PDEL      '
+       TEXT '[,] = LDEL      '
+       TEXT '                '
+       TEXT '                '
+       TEXT 'M =             '
+       BYTE 0
+SEEDLN TEXT '00000'
+       BYTE 0
+PDELLN TEXT '00000'
+       BYTE 0
+LDELLN TEXT '00000'
+       BYTE 0
+MNG6LN TEXT '512*212*16 '    Mode #0
+       BYTE 0
+MNG7LN TEXT '256*212*256'    Mode #2
+       BYTE 0
+ENTER  BYTE 13
+DEC60  BYTE 60
+EVEN   BYTE >1F
+ODD    BYTE >3F
+       EVEN
+*
+* End of Program
+*
+SLAST  EQU  $
+       EVEN
+*
+* Buffers and Workspaces after file image
+*
+DEMOWS BSS  32
+RNDNUM BSS  2
+*
+* THAT IS ALL FOLKS!
+*
+       END
