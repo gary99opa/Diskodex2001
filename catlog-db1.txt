@@ -1,0 +1,538 @@
+****************************************************************
+* CATLOG-DB1  v1.01.04/11/89  DX DATA BLOCKS                #1 *
+****************************************************************
+*                                                              *
+* Source Published: 04/14/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1989 by Gary Bowser and Cecil Chin from O.P.A.   *
+*                                                              *
+* Credit Must Be Included When Using Source from DISKODEX 2001 *
+*                                                              *
+****************************************************************
+ 
+*********** PHOENIX LOGO
+CODE3  DATA >E281,TTSPR2,>F0F,>F0F,>F0F,>F00
+       DATA >E381,TTSPR1,>703,>20B,>A09,>80E,>FFF
+       DATA CODE3-1
+CODE   DATA K,D9,D10,D11
+CODE2  BYTE >1,->2,->3,->4,->5,->6,->7,->8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,->5,->6,->7,->8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,->5,->6,->7,->8,->9,->A,->B
+       BYTE >1,>2,>3,>4,>5,>6,->7,->8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,->5,->6,->7,->8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,->5,>6,>7,>8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,->5,->6,->7,->8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,->5,->6,->7,->8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,>8,>9,>A,>B
+       BYTE >1,>2,>3,>4,>5,>6,>7,>8,>9,>A,>B
+       BYTE >1,>2,>3,>4,>5,>6,>7,>8,>9,>A,>B
+       BYTE >1,>2,>3,>4,>5,>6,>7,>8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,->5,->6,->7,->8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,->5,->6,->7,>8,>9,>A,>B
+       BYTE >1,>2,>3,>4,>5,>6,>7,->8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,->5,->6,->7,>8,->9,->A,->B
+       BYTE ->1,->2,->3,->4,->5,->6,->7,->8,>9,>A,>B
+CODEND EQU  $
+       EVEN
+ 
+*********** DATA CONSTANTS
+DEC05  DATA 5                 5
+DECTEN DATA 10                10
+PAGBLK DATA 12                Number of Header/Footer lines per page
+DEC26  DATA 26                26
+DEC40  DATA 40                40
+DEC50  DATA 50                50
+TYPCHK DATA 63                File Types bits 0-5 set on
+HEX08  DATA >0008             DSRLNK Type 8 for WRTDSR
+HEX30  DATA >0030             ASCII 0-9 offset
+HEX80  DATA >0080             128
+HEX100 DATA >0100             256
+HEX2D0 DATA >02D0             720  sectors before switch to 256 files
+HEX400 DATA >0400             1024 bytes per Kilo
+SPACE  DATA >2000             ASCII Space code
+CONOFF DATA >FFFF,'n ','ff'   Use for Comment toggle >0000=OFF / >FFFF=ON
+TEXTFB DATA >07F4             TEXT MODE FORE/BACK GROUND
+TC1    DATA >0600             USE ONLY BY KB AND RSCAN
+TC2    DATA 3
+TC3    DATA 10
+FFBUF  DATA >FFFF,>FFFF,>FFFF,>FFFF,>FFFF
+SRTIO1 DATA RWPAB1+>4006
+SRTIO2 DATA RWPAB1+1
+SRTIO3 DATA SCREEN+823+>4000
+SRTIO4 DATA RWBUF1
+SRTIO5 DATA SCREEN+280
+SRTIO6 DATA SCREEN+240+>4000
+SRTIO7 DATA RWBUF1+13
+DSK80  DATA >0C80,17 secs -3  Length of DISK file when 128disks
+DSK100 DATA >1900,29 secs -3  Length of DISK file when 256disks
+SECPAB DATA >0110             Read/Write Sector Pab
+FILPAB DATA >0116             Call Files Pab
+QD80   DATA >5002             Use for checking a DS/QD disk
+MOVIO1 DATA RWPAB1+>4000
+MOVIO2 DATA RWPAB1+>4002
+MOVRD  DATA READ
+MOVWD  DATA WRITE
+ 
+*********** SPRITE TABLES
+TTSPR1 DATA >2F03,>800F,>1F25,>840F,>0F42,>880F,>FF62,>8C0F   D I S K
+       DATA >FF86,>900F,>0FA2,>800F,>1FC0,>940F,>2FE0,>980F   O D E X
+       DATA >642A,>9C0A,>6459,>A00A,>648F,>A00A,>64BE,>A40A   2 0 0 1
+       DATA >D000
+TTSPR2 DATA >370C,>800F,>272B,>840F,>1748,>880F,>076A,>8C0F   D I S K
+       DATA >078E,>900F,>17AA,>800F,>27C8,>940F,>37E8,>980F   O D E X
+       DATA >6A3E,>9C0A,>6A65,>A00A,>6A93,>A00A,>6AB4,>A40A   2 0 0 1
+       DATA >D000
+ 
+*********** CHAR TABLES
+RVCHAZ DATA >FFCF,>B7B7,>87B7,>B7FF,>FF8F,>B78F,>B7B7,>8FFF  A,B
+       DATA >FFCF,>B7BF,>BFB7,>CFFF,>FF8F,>B7B7,>B7B7,>8FFF  C,D
+       DATA >FF87,>BF8F,>BFBF,>87FF,>FF87,>BF8F,>BFBF,>BFFF  E,F
+       DATA >FFCF,>B7BF,>A7BF,>CFFF,>FFB7,>B787,>BFBF,>BFFF  G,H
+       DATA >FFC7,>EFEF,>EFEF,>C7FF,>FFC7,>EFEF,>EFAF,>DFFF  I,J
+       DATA >FFB7,>AF9F,>9FAF,>B7FF,>FFBF,>BFBF,>BFBF,>87FF  K,L
+       DATA >FFB7,>87B7,>B7B7,>B7FF,>FFB7,>9797,>A7A7,>B7FF  M,N
+       DATA >FFCF,>B7B7,>B7B7,>CFFF,>FF8F,>B7B7,>8FBF,>BFFF  O,P
+       DATA >FFCF,>B7B7,>B7AF,>D7FF,>FF8F,>B78F,>9FAF,>B7FF  Q,R
+       DATA >FFCF,>B7DF,>EFB7,>CFFF,>FFC7,>EFEF,>EFEF,>EFFF  S,T
+       DATA >FFB7,>B7B7,>B7B7,>CFFF,>FFB7,>B7B7,>B7D7,>EFFF  U,V
+       DATA >FFB7,>B7B7,>B787,>B7FF,>FFB7,>B7CF,>CFB7,>B7FF  W,X
+       DATA >FFB7,>B7D7,>EFDF,>BFFF,>FF87,>F7EF,>DFBF,>87FF  Y,Z
+SPRPAT BYTE 255,255,255,32,32,32,32,32            D      80
+       BYTE 32,32,32,32,255,255,255,0                    81
+       BYTE 128,192,224,96,32,32,32,32                   82
+       BYTE 32,32,32,96,224,192,128,0                    83
+       BYTE 255,255,255,8,8,8,8,8                 I      84
+       BYTE 8,8,8,8,255,255,255,0                        85
+       BYTE 128,128,128,0,0,0,0,0                        86
+       BYTE 0,0,0,0,128,128,128,0                        87
+       BYTE 31,63,127,224,192,96,31,0             S      88
+       BYTE 0,128,192,224,127,63,31,0                    89
+       BYTE 128,192,224,96,32,0,0,192                    8A
+       BYTE 96,48,48,112,224,192,128,0                   8B
+       BYTE 248,248,248,32,32,32,33,62            K      8C
+       BYTE 33,32,32,32,248,248,248,0                    8D
+       BYTE 248,248,248,32,64,128,0,0                    8E
+       BYTE 0,128,64,32,248,248,248,0                    8F
+       BYTE 63,127,255,192,128,128,128,128        O      90
+       BYTE 128,128,128,192,255,127,63,0                 91
+       BYTE 128,192,224,96,32,32,32,32                   92
+       BYTE 32,32,32,96,224,192,128,0                    93
+       BYTE 255,255,255,32,32,33,35,63            E      94
+       BYTE 35,33,32,32,255,255,255,0                    95
+       BYTE 224,224,224,96,32,0,0,0                      96
+       BYTE 0,0,32,96,224,224,224,0                      97
+       BYTE 248,248,248,32,16,8,5,2               X      98
+       BYTE 5,8,16,32,248,248,248,0                      99
+       BYTE 248,248,248,32,64,128,0,0                    9A
+       BYTE 0,128,64,32,248,248,248,0                    9B
+       BYTE 127,255,255,143,31,63,126,255         2      9C
+       BYTE 255,255,255,0,0,0,0,0                        9D
+       BYTE 192,224,224,192,128,0,32,224                 9E
+       BYTE 224,224,224,0,0,0,0,0                        9F
+       BYTE 127,255,255,252,252,252,252,252       0      A0
+       BYTE 255,255,127,0,0,0,0,0                        A1
+       BYTE 192,224,224,224,224,224,224,224              A2
+       BYTE 224,224,192,0,0,0,0,0                        A3
+       BYTE 255,255,255,63,63,63,63,63            1      A4
+       BYTE 255,255,255,0,0,0,0,0                        A5
+       BYTE 128,128,128,128,128,128,128,128              A6
+       BYTE 224,224,224,0,0,0,0,0                        A7
+ 
+*********** KEY/BRANCH TABLES
+MANMEN DATA MENKEY,NEWDSK,DPDSK,PRTCAT,DISSTA,SETSYS,TEP,0
+SETMEN DATA SETKEY,MMENU,SYSSET,SETPRN,SETFOR,SETBCK,SETSAV
+       DATA 0
+DSKMEN DATA DSKEYS,GOCAT,DELETE,DSKPRT,GOFWD,GOBCK,DPUP
+       DATA DPDOWN,GOFWD,GOBCK,MMENU,DPUP,DPDOWN,0
+CATMN1 DATA CATKEY,DISBCK,DISPAG,DISPRT,PGMSAV,DISCOM,DISBCK
+       DATA DISPAG,DISRT,DISRE,0
+CATMN2 DATA CATKEY+7,DISRT,DISRE,0
+ 
+*********** PRINTER TABLES
+PRNPAG DATA PRNH01,0,80,0
+PRNEND DATA 0,0,0,0,0,0,0
+PRTSET DATA PRNHEX+1,0,>0000,0
+ 
+PRNCAT DATA PRNL01,HEAD1,4,71,HEAD3,4,48,HEAD4,4,76
+PRNDSK DATA PRNL02,0,MENU07,22,40,MENU07+40,22,40
+PRNFIL DATA PRNL03,0,HEAD3,4,48,HEAD4,4,76
+PRNSRT DATA PRNL06,0,HEAD3,4,48,HEAD4,4,76
+PRNSTA DATA PRNL04,0,STAL07,22,40,STAL08,22,40
+PRNSTB DATA STAL01,22,40,STAL01+40,22,40,STAL01+80,22,40,0
+       DATA STAL02,22,40,STAL02+40,22,40,STAL02+80,22,40,0
+       DATA STAL09,22,40,STAL09+40,22,40,STAL09+80,22,40,0
+       DATA STAL03,22,40,STAL03+40,22,40,STAL03+80,22,40
+       DATA STAL03+120,22,40
+ 
+*********** DISPLAY TABLES
+STALN1 DATA 0,SCREEN,MENU08,SCREEN+80,STAL01,SCREEN+240
+       DATA STAL09,SCREEN+400,STAL02,SCREEN+560,STAL03
+       DATA SCREEN+920,STAL06,0
+DELHED DATA 0,SCREEN+86,LINE11,SCREEN+920,LINE10,0
+NODSKS DATA 0,SCREEN+920,ASK07,SCREEN+86,MENU06,0
+DISHD  DATA 0,SCREEN,LINE05,SCREEN+86,MENU06,SCREEN+160
+       DATA MENU07,SCREEN+920,HEAD6,0
+HEADER DATA BEEP,SCREEN+160,HEAD3,SCREEN+200,HEAD4A
+       DATA SCREEN+40,HEAD1,0
+HEADR1 DATA 0,SCREEN+40,HEAD1,SCREEN+920,HEAD5,0
+MENU$1 DATA BEEP,SCREEN,LINE05,SCREEN+920,ASK05,SCREEN+600
+       DATA MENU01,SCREEN+93,MENU02,0
+MENU$2 DATA HONK,SCREEN+880,ASK03,0
+NOROOM DATA HONK,SCREEN+880,ASK03A,SCREEN+920,ASK03B,0
+SYSSCR DATA BEEP,SCREEN,LINE05,SCREEN+93,LNSYS0,SCREEN+920
+       DATA LINE04,SCREEN+360,LNSYS3,SCREEN+440,MENU01
+       DATA SCREEN+800,ASK05,0
+NEWASK DATA BEEP,SCREEN+920,LNSYS1,0
+OLDASK DATA BEEP,SCREEN+920,LNSYS2,0
+BDLINE DATA 0,SCREEN+920,LINE01,0
+PRINT  DATA BEEP,SCREEN+920,LINE09,SCREEN+924,LN09A,0
+BLKDSK DATA HONK,SCREEN+40,HEAD1,SCREEN+920,LINE03,0
+MMSCR  DATA BEEP,SCREEN,LINE05,SCREEN+360,LINE06,SCREEN+920
+       DATA LINE04,0
+ERR01  DATA HONK,SCREEN+920,ERRL01,0
+ENDLIN DATA BEEP,SCREEN+920,LINE07,0
+PPWLIN DATA BEEP,SCREEN+920,LINE09,0
+IDDLIN DATA HONK,SCREEN+840,ASK04,SCREEN+920,ASK05,0
+UPDLIN DATA 0,SCREEN+920,ASK06,0
+UPDLN1 DATA 0,SCREEN+920,ASK06A,0
+UPDLN2 DATA 0,SCREEN+840,ASK06D,SCREEN+920,ASK06B,0
+UPDLN3 DATA 0,SCREEN+920,ASK06C,0
+PRTSCR DATA BEEP,SCREEN+84,LN12,SCREEN+920,ASK05,SCREEN+200
+       DATA LINE18,SCREEN+320,LINE19,SCREEN+440,LINE21
+       DATA SCREEN+520,LN21A,SCREEN+640,LN21B,SCREEN+760
+       DATA LN21C,0
+PTSCR1 DATA 0,SCREEN+800,PRNL05,SCREEN+86,LINE12,SCREEN+920
+       DATA ASK05,SCREEN+880,LINE17,0
+PTSCR2 DATA 0,SCREEN+800,LINE14,0
+PTSCR3 DATA BEEP,SCREEN+906,LN17A,0
+PTSCR4 DATA 0,SCREEN+920,ASK07,0
+PTSCR5 DATA BEEP,SCREEN+920,LINE16,0
+PTSCR6 DATA BEEP,SCREEN+920,ASK05,SCREEN+160,HEAD3
+       DATA SCREEN+200,HEAD4A,SCREEN+640,HEAD4A,SCREEN+800
+       DATA LINE13,0
+PTSCR7 DATA 0,SCREEN+720,LINE20,0
+PTSCR8 DATA 0,SCREEN+320,LINE22,SCREEN+480,LN22A,SCREEN+920
+       DATA LN22B,0
+PTSCR9 DATA 0,SCREEN+800,LINE23,0
+PTSCRA DATA 0,SCREEN+320,LINE25,0
+TITSCR DATA BEEP,SCREEN+512,TITLIN,SCREEN+140,BRDLN0
+       DATA SCREEN+172,BRDLN1,SCREEN+204,BRDLN2,SCREEN+236
+       DATA BRDLN3,SCREEN+268,BRDLN4,SCREEN+300,BRDLN5
+       DATA SCREEN+332,BRDLN6,SCREEN+364,BRDLN7,0
+PRNASK DATA BEEP,SCREEN+920,LINE15,0
+SETSCR DATA BEEP,SCREEN+93,LNSYS0,SCREEN+200,SETLN0
+       DATA SCREEN+440,SETLN1,SCREEN+520,SETLN2,SCREEN+600
+       DATA SETLN3,SCREEN+680,SETLN4,SCREEN+800,SETLN5
+       DATA SCREEN+920,SETLN6,SCREEN+692,STAL05,0
+ 
+*********** I/O PABS
+PRNPAB DATA 0,RWBUF2,>5050,0,3
+STAL05 TEXT 'PIO                      '
+       BYTE >FF
+       EVEN
+PGMPAB DATA 0,RWBUF1,>3232,0,15
+       TEXT 'DSKx.CATLOG_PGM'
+       EVEN
+DSKPAB DATA 0,FILBUF,0,0,15
+       TEXT 'DSKx.CATLOG_DSK'
+       EVEN
+ 
+*********** TEXT LINES
+DSKST1 TEXT '                                        '
+       BYTE >FF
+HEAD1  TEXT ' DSK_.__________ __/__/__  _ Files= ___ '
+HEAD2  TEXT ' Total=____ Used=____ Free=____ pg__/__ '
+       BYTE >FF
+HEAD3  TEXT ' Filename   Size Type  Len P Diskname   '
+       TEXT ' Comment'
+       BYTE >FF
+HEAD4A TEXT ' ---------- ---- --------- - ---------- '
+       BYTE >FF
+HEAD4  TEXT ' ---------- ---- --------- - ---------- '
+       TEXT ' -----------------------------------'
+       BYTE >FF
+HEAD5  BYTE 'R'-65,'E'-65,'D'-65,'O'-65,','
+       BYTE 'B'-65,'A'-65,'C'-65,'K'-65,','
+       BYTE 'S'-65
+       TEXT 'ave,'
+       BYTE 'P'-65
+       TEXT 'rint,'
+       BYTE 'N'-65
+       TEXT 'ext,'
+       BYTE 'B'-65
+       TEXT 'ack,'
+       BYTE 'C'-65
+       TEXT 'omnt o__'
+       BYTE >FF
+LINE03 TEXT ' NOTE: This diskette is blank '
+       BYTE 'R'-65,'E'-65,'D'-65,'O'-65,','
+       BYTE 'B'-65,'A'-65,'C'-65,'K'-65,' ',>FF
+LINE01 TEXT ' Building Directory on DSK_.__________  '
+       BYTE >FF
+ASK07  TEXT ' NOTE: NO DISKS IN MEMORY,press any key '
+       BYTE >FF
+ASK06  TEXT ' DISKNAME ALREADY ON FILE: Update '
+       BYTE 'Y'-65,'/','N'-65
+       TEXT ' ? '
+       BYTE >FF
+ASK06A TEXT '     Rename this disk then?  ('
+       BYTE 'Y'-65,'/','N'-65
+       TEXT ')      '
+       BYTE >FF
+ASK06B TEXT '   RENAMING             to              '
+       BYTE >FF
+ASK06C TEXT ' Press '
+       BYTE 'E'-65,'N'-65,'T'-65,'E'-65,'R'-65
+       TEXT ' to Rename or '
+       BYTE 'B'-65,'A'-65,'C'-65,'K'-65
+       TEXT ' to Abort '
+       BYTE >FF
+ASK06D TEXT ' Enter NEW NAME or  Blank line to Abort '
+       BYTE >FF
+ASK05  TEXT '     Press  '
+       BYTE 'B'-65,'A'-65,'C'-65,'K'-65
+       TEXT ' (FCTN-9) to escape     '
+       BYTE >FF
+ASK04  TEXT ' INSERT DATA DISK IN #_ : Press any key '
+       BYTE >FF
+ASK03  TEXT '  Max. Number of DISKS already reached  '
+ASK03B TEXT '  Please check STATUS  : Press any key  '
+       BYTE >FF
+ASK03A TEXT ' DISK IS FULL, No free space for files. '
+       BYTE >FF
+LINE09 TEXT '    Processing....   Please Wait....    '
+       BYTE >FF
+LN09A  TEXT 'Printing..'
+       BYTE >FF
+LINE04 TEXT '  '
+       BYTE 26,27
+       TEXT '1989 by OPA Oasis Pensive Abacutors '
+       BYTE >FF
+LINE05 BYTE 32,30,30,30
+       TEXT '   PHOENIX  2 0 0 1  DISKODEX   '
+       BYTE 30,30,30,32,32,30
+       TEXT '                                    '
+       BYTE 30,32,32,30,30,30
+       TEXT '           MAIN MENU            '
+       BYTE 30,30,30,32,>FF
+LINE06 TEXT '      1...  Catalog a disk drive        '
+       TEXT '      2...  Display all disk names      '
+       TEXT '      3...  Print & search catalog      '
+       TEXT '      4...  Display status              '
+       TEXT '      5...  System  setup               '
+       TEXT '      6...  TO EXIT PROGRAM             '
+       BYTE >FF
+LNSYS0 TEXT ' SYSTEM SETUP '
+       BYTE >FF
+LNSYS1 TEXT '  Creating DATA DISK... Please Wait...  '
+       BYTE >FF
+LNSYS2 TEXT '  Loading  DATA DISK... Please Wait...  '
+       BYTE >FF
+LNSYS3 TEXT '  Insert old DATA DISK or a BLANK DISK  '
+       BYTE >FF
+MENU01 TEXT '       INPUT DRIVE NUMBER (1-9) ?       '
+       BYTE >FF
+LINE07 TEXT '  EXIT PROGRAM : Are you sure ('
+       BYTE 'Y'-65,'/','N'-65
+       TEXT ') ?   '
+       BYTE >FF
+MENU02 TEXT 'Catalog a Disk'
+       BYTE >FF
+ERRL01 TEXT ' I/O ERROR has occurred : Press any key '
+       BYTE >FF
+HEAD6  BYTE ' ','B'-65,'A'-65,'C'-65,'K'-65,','
+       BYTE 'P'-65
+       TEXT 'rint,'
+       BYTE 'C'-65
+       TEXT 'atalog,'
+       BYTE 'D'-65
+       TEXT 'el,'
+       BYTE 'N'-65
+       TEXT 'ext,'
+       BYTE 'B'-65
+       TEXT 'ack,'
+       BYTE 'E'-65,28,',','X'-65,29,32,>FF
+MENU06 TEXT 'Displaying Disks    pg'
+AMTPG  TEXT ' __/__'
+       BYTE >FF
+MENU07 TEXT ' DISKNAME   TOTL USED FREE FLS DATE     '
+       TEXT ' ---------- ---- ---- ---- --- -------- '
+       BYTE >FF
+LINE10 TEXT ' DELETE __________ : Are you sure ('
+       BYTE 'Y'-65,'N'-65
+       TEXT ')? '
+       BYTE >FF
+LINE11 TEXT '      Deleting  a Disk      '
+       BYTE >FF
+LN12   TEXT 'Setup Menu for Printing Catalog'
+       BYTE >FF
+LINE12 TEXT 'Printing catalog to         '
+       BYTE >FF
+LN12A  TEXT '  Screen PrinterDiskette'
+LINE13 TEXT '   Output to Screen or Other  ('
+       BYTE 'S'-65,'/','O'-65
+       TEXT ') ?   '
+       BYTE >FF
+LINE14 TEXT '   Input name or  Blank line to exit.   '
+       BYTE >FF
+LINE15 TEXT ' DEVICE NAME:_________________________< '
+       BYTE >FF
+LINE16 TEXT ' *** END OF CATALOG ***   Press any key '
+       BYTE >FF
+LINE17 TEXT '          '
+       BYTE 'S'-65,'P'-65,'A'-65,'C'-65,'E'-65
+       TEXT ' BAR   to   pause.       '
+       BYTE >FF
+LN17A  TEXT 'Continue'
+       BYTE >FF
+LINE18 TEXT '  Input string or blank line for all.   '
+       BYTE >FF
+LINE19 TEXT '  FILE SEARCH STRING : __________       '
+       BYTE >FF
+LINE20 TEXT ' Searching for records with             '
+       BYTE >FF
+LINE21 TEXT '   WILDCARD Characters can be used !!   '
+       BYTE >FF
+LN21A  TEXT '   Use FCTN-6 '
+       BYTE 30
+       TEXT ' to replace any number   '
+       TEXT '   of characters in a search string.    '
+       BYTE >FF
+LN21B  TEXT '   Use FCTN-7 '
+       BYTE 31
+       TEXT ' to replace only one     '
+       TEXT '   character in a search string.        '
+       BYTE >FF
+LN21C  TEXT '   See DISKODEX  Manual for examples.   '
+       BYTE >FF
+LINE22 TEXT ' Mark and Unmark file types to list in  '
+       TEXT ' the catalog, by pressing keys 0 to 5.  '
+       BYTE >FF
+LN22A  TEXT '      0 = ??? Non-Standard file types   '
+       TEXT '      1 = D/F Display  / Fixed          '
+       TEXT '      2 = D/V Display  / Variable       '
+       TEXT '      3 = I/F Internal / Fixed          '
+       TEXT '      4 = I/V Internal / Variable       '
+       TEXT '      5 = PGM Programs                  '
+       BYTE >FF
+LN22B  TEXT '  Press '
+       BYTE 'E'-65,'N'-65,'T'-65,'E'-65,'R'-65
+       TEXT ' when ready or '
+       BYTE 'R'-65,'E'-65,'D'-65,'O'-65
+       TEXT ', '
+       BYTE 'B'-65,'A'-65,'C'-65,'K'-65,>FF
+LINE23 TEXT ' Formfeed before each new letter ('
+       BYTE 'Y'-65,'/','N'-65
+       TEXT ')? '
+       BYTE >FF
+LINE25 TEXT '  DISK'
+       BYTE >FF
+MENU08 TEXT ' ***  Displaying  DISKODEX  Status  *** '
+       BYTE >FF
+STAL07 TEXT '      NAME OF STATUS     :  DATA        '
+STAL08 TEXT '      ------------------   -------      '
+STAL01 TEXT '      Disks   allowed    :   _____      '
+       TEXT '      Disks   in memory  :   _____      '
+       TEXT '      Disk    slots free :   _____      '
+       BYTE >FF
+STAL09 TEXT '      Files   allowed    :   _____      '
+       TEXT '      Files   on disk    :   _____      '
+       TEXT '      File    slots free :   _____      '
+       BYTE >FF
+STAL02 TEXT '      Total   sectors    : _______      '
+       TEXT '      Total   used       : _______      '
+       TEXT '      Total   free       : _______      '
+       BYTE >FF
+STAL03 TEXT '      Average files      :   _____      '
+       TEXT '      Average sectors    :   _____      '
+       TEXT '      Average used       :   _____      '
+       TEXT '      Average free       :   _____      '
+       BYTE >FF
+STAL06 TEXT '  Press '
+       BYTE 'B'-65,'A'-65,'C'-65,'K'-65
+       TEXT ' or '
+       BYTE 'P'-65
+       TEXT ' to print the status.  '
+       BYTE >FF
+SETLN0 TEXT '  Current data disk is DSK_.__________  '
+       BYTE >FF
+SETLN1 TEXT '  Maximum number of lines per page:___  '
+       BYTE >FF
+SETLN2 TEXT '  Printer setup string in hexadecimal:  '
+       BYTE >FF
+SETLN3 TEXT '  >                                  <  '
+       BYTE >FF
+SETLN4 TEXT '  Printer: >_________________________<  '
+       BYTE >FF
+SETLN5 TEXT '  Color '
+       BYTE 'F'-65
+       TEXT 'oreground: __  '
+       BYTE 'B'-65
+       TEXT 'ackground: __  '
+       BYTE >FF
+SETLN6 BYTE 'B'-65,'A'-65,'C'-65,'K'-65,',','C'-65
+       TEXT 'hange data disk,'
+       BYTE 'P'-65
+       TEXT 'rinter setup,'
+       BYTE 'S'-65
+       TEXT 'ave'
+       BYTE >FF
+PRNH01 TEXT '     ***   PHOENIX  2 0 0 1  DISKODEX   '
+PRNH02 TEXT ' PRINTOUT OF ________   pg ___/___   ***'
+PRNL01 TEXT 'CATALOG '
+PRNL02 TEXT 'DISKS   '
+PRNL03 TEXT 'FILES   '
+PRNL06 TEXT 'SEARCH  '
+PRNL04 TEXT 'STATUS  '
+PRNL05 TEXT '      Working on Line  _____/_____      '
+       BYTE >FF
+TITLIN BYTE 32,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2
+       BYTE 2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,32
+       BYTE 32,4
+       TEXT ' PHOENIX  2 0 0 1  DISKODEX '
+       BYTE 5,32,32,4
+       TEXT '                            '
+       BYTE 5,32,32,4
+       TEXT 'fully supports DSKU comments'
+       BYTE 5,32,32,4
+       TEXT '                            '
+       BYTE 5,32,32,4
+       TEXT '   Version  1.01.GBCC.OPA   '
+       BYTE 5,32,32,6,2,2,2,2,2,2,2,2,2,2,2,2,2,2
+       BYTE 2,2,2,2,2,2,2,2,2,2,2,2,2,2,7,32,32,8
+       TEXT '1989  Oasis Pensive Abacutors '
+       BYTE >FF
+BRDLN0 BYTE >C0,>C2,>C4,>C6,>C8,>CA,>CC,>CE,>FF
+BRDLN1 BYTE >C1,>C3,>C5,>C7,>C9,>CB,>CD,>CF,>FF
+BRDLN2 BYTE >D0,>D2,>D4,>D6,>D8,>DA,>DC,>DE,>FF
+BRDLN3 BYTE >D1,>D3,>D5,>D7,>D9,>DB,>DD,>DF,>FF
+BRDLN4 BYTE >E0,>E2,>E4,>E6,>E8,>EA,>EC,>EE,>FF
+BRDLN5 BYTE >E1,>E3,>E5,>E7,>E9,>EB,>ED,>EF,>FF
+BRDLN6 BYTE >F0,>F2,>F4,>F6,>F8,>FA,>FC,>FE,>FF
+BRDLN7 BYTE >F1,>F3,>F5,>F7,>F9,>FB,>FD,>FF,>FF
+       EVEN
+ 
+*********** BYTE CONSTANTS
+HEX    TEXT '0123456789ABCDEF'
+TYPE   TEXT '??? D/F D/V I/F I/V PGM '
+NODRV  TEXT '/'               NO DRIVE ON CATALOG
+PERIOD TEXT '.'               DSR Name end
+KILO   TEXT 'k'               NUMASC is over 655350 div by 1024
+DSKPRO TEXT ' '               Temp for storing Disk Protection
+PRO    TEXT 'P'               For Protect
+YNKEYS TEXT 'YN'              Yes/No keys
+MENKEY TEXT '123456'          System/Main menu keys
+SETKEY BYTE 15                Status Menu keys
+       TEXT 'CPFBS'
+DSKEYS TEXT 'CDPNBEX'         Display Disks keys
+       BYTE 2,12,15,11,10
+CATKEY TEXT 'BNPSC'           Catalog a Disk keys
+       BYTE 2,12,15,6
+DEC01  BYTE 1                 1
+ENTER  BYTE 13                ENTER key
+BACK   BYTE 15                BACK FCTN key
+FORCHK BYTE 30                WILDCARD Check for *
+SYSOS  BYTE >50               O.S. Control Value for no Motion and QUIT
+HEXAA  BYTE >AA               DSR HEADER
+MARK   BYTE >7F               Marker/Cursor char
+       EVEN

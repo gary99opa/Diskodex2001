@@ -1,0 +1,217 @@
+****************************************************************
+* CATLOG-M45  v1.01.04/11/89  DX DISPLAY STATUS / SYSTEM SETUP *
+****************************************************************
+*                                                              *
+* Source Published: 04/14/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1989 by Gary Bowser and Cecil Chin from O.P.A.   *
+*                                                              *
+* Credit Must Be Included When Using Source from DISKODEX 2001 *
+*                                                              *
+****************************************************************
+ 
+*********************************
+* DISPLAY STATUS                *
+*********************************
+DISTA0 BLWP @WRTSCR
+       DATA ERR01
+       BL   @SCAN
+DISSTA BLWP @CLEAR            Clear Screen
+       DATA SCREEN,960
+       BL   @DISIDD           Make Sure Data Disk is in
+       CLR  @TOTSEC           Clear TOTAL SECTORS
+       CLR  @TOTSEC+2
+       CLR  @TOTUSD           Clear TOTAL USED
+       CLR  @TOTUSD+2
+       CLR  @TOTFRE           Clear TOTAL FREE
+       CLR  @TOTFRE+2
+       SETO R12
+DISTA1 INC  R12               Get a DISK record
+       C    R12,@NUMDSK
+       JHE  DISTA5
+       MOV  R12,R0
+       BL   @CALBUF
+       DATA 26,DSKBUF,0
+       MOV  R0,R1
+       A    @14(R1),@TOTFRE+2 Add  FREE
+       JNC  DISTA2
+       INC  @TOTFRE
+DISTA2 MOV  @10(R1),R5        Add  SIZE
+       A    R5,@TOTSEC+2
+       JNC  DISTA3
+       INC  @TOTSEC
+DISTA3 S    @14(R1),R5        Add  USED
+       A    R5,@TOTUSD+2
+       JNC  DISTA4
+       INC  @TOTUSD
+DISTA4 JMP  DISTA1
+DISTA5 MOV  @NUMDSK,R5        Get DISKS   IN MEMORY
+       BL   @NUMASC
+       DATA STAL01+73,5
+       MOV  @MAXDSK,R5        Get DISKS   ALLOWED
+       BL   @NUMASC
+       DATA STAL01+33,5
+       S    @NUMDSK,R5        Get DISK    SLOTS FREE
+       BL   @NUMASC
+       DATA STAL01+113,5
+       MOV  @TOTSEC,R4        Get TOTAL   SECTORS
+       MOV  @TOTSEC+2,R5
+       BL   @NUMASC
+       DATA STAL02+33,7
+       MOV  @TOTUSD,R4        Get TOTAL   USED
+       MOV  @TOTUSD+2,R5
+       BL   @NUMASC
+       DATA STAL02+73,7
+       MOV  @TOTFRE,R4        Get TOTAL   FREE
+       MOV  @TOTFRE+2,R5
+       BL   @NUMASC
+       DATA STAL02+113,7
+       CLR  R5                Get AVERAGE FILES
+       MOV  @NUMPGM,R6
+       DIV  @NUMDSK,R5
+       BL   @NUMASC
+       DATA STAL03+33,5
+       MOV  @TOTSEC,R5        Get AVERAGE SECTORS
+       MOV  @TOTSEC+2,R6
+       DIV  @NUMDSK,R5
+       BL   @NUMASC
+       DATA STAL03+73,5
+       MOV  @TOTUSD,R5        Get AVERAGE USED
+       MOV  @TOTUSD+2,R6
+       DIV  @NUMDSK,R5
+       BL   @NUMASC
+       DATA STAL03+113,5
+       MOV  @TOTFRE,R5        Get AVERAGE FREE
+       MOV  @TOTFRE+2,R6
+       DIV  @NUMDSK,R5
+       BL   @NUMASC
+       DATA STAL03+153,5
+       MOV  @MAXFIL,R5        Get FILES   ALLOWED
+       BL   @NUMASC
+       DATA STAL09+33,5
+       MOV  @NUMPGM,R5        Get FILES   ON DISK
+       BL   @NUMASC
+       DATA STAL09+73,5
+       MOV  @DDROOM,R5        Get FILE    SLOTS FREE
+       BL   @NUMASC
+       DATA STAL09+113,5
+DISTA6 BLWP @WRTSCR           Display Main Status
+       DATA STALN1
+DISTA7 BL   @SCAN
+       CB   @KEYVAL,@BACK
+       JEQ  DISTA8
+       CB   @KEYVAL,@PRO
+       JNE  DISTA7
+       BL   @EDTPRN
+       JEQ  DISTA6
+       BL   @NEWPAG           SETUP STATUS PAGES
+       DATA PRNSTA,16,DISTA0  Header,Length,Error return
+       BL   @WRTPRN           WRITE STATUS PAGE #1
+       DATA PRNSTB            Block
+STALEN DATA 16                Length
+       JEQ  DISTA8            Exit, if error
+       S    @STALEN,@PAGLIN   Sub Length from Page Lines Left
+       BL   @ENDPAG           END STATUS PAGES
+DISTA8 B    @MMENU
+ 
+*********************************
+* SYSTEM SETUP                  *
+*********************************
+SETSYS BLWP @CLEAR
+       DATA SCREEN+120,840
+       BL   @SENSTR
+       DATA DSKID,SETLN0+28,10
+       MOVB @SAVDRV,@SETLN0+26
+       AB   @HEX30+1,@SETLN0+26
+       MOV  @PAGLEN,R5
+       BL   @NUMASC
+       DATA SETLN1+37,3
+       BL   @HEXASC
+       DATA PRNHEX,SETLN3+3
+       MOV  @TEXTFB,R5        Get FOREGROUND COLOR
+       ANDI R5,>00F0
+       SRL  R5,4
+       INC  R5
+       BL   @NUMASC
+       DATA SETLN5+21,2
+       MOV  @TEXTFB,R5        Get BACKGROUND COLOR
+       ANDI R5,>000F
+       INC  R5
+       BL   @NUMASC
+       DATA SETLN5+37,2
+       BLWP @WRTSCR           DISPLAY SYSTEM SETUP SCREEN
+       DATA SETSCR
+       BL   @MSCAN            Wait for a C,P,F,B,S keys
+       DATA SETMEN
+ 
+SETPRN BLWP @KB
+       DATA SCREEN+475,SETLN1+35,3,0
+       MOV  R0,R0
+       JEQ  SETPRN
+       BL   @ASCNUM
+       DATA SETLN1+35,3
+       JLT  SETPRN
+       JEQ  SETPRN
+       MOV  R4,@PAGLEN
+       BLWP @KB
+       DATA SCREEN+603,SETLN3+3,34,0
+       SRL  R0,1
+       MOV  R0,@STPRN1
+       JEQ  SETPRN
+       SWPB R0
+       MOVB R0,@PRNHEX
+       BL   @ASCHEX
+       DATA SETLN3+3,PRNHEX+1
+STPRN1 DATA >0000
+       BLWP @KB
+       DATA SCREEN+692,STAL05,25,0
+       MOV  R0,@PRNPAB+8
+       JEQ  SETPRN
+       SETO @PRNRST
+       B    @SETSYS
+ 
+SETFOR BL   @SETFBG           ADD 1 to   FOREGROUND
+       INC  R5                (fore in   R5)
+SETBCK BL   @SETFBG           ADD 1 to   BACKGROUND
+       INC  R4                (back in   R4)
+SETFBG MOV  @TEXTFB,R4        Store TEXT color in R4 & R5
+       MOV  R4,R5
+       ANDI R4,>000F          Make  BACK in R4
+       ANDI R5,>00F0          Make  FORE in R5
+       SRL  R5,4              Make  FORE bits same as BACK
+SETFBI X    *R11              !!!!  INC  R4 or R5
+       ANDI R4,>000F          Make  BACK in R4
+       JNE  SETFB2            Check BACK if TRANSPARENT
+       INC  R4                If so make FORE BLACK
+SETFB2 ANDI R5,>000F          Make  FORE in R5
+       JNE  SETFB3            Check FORE if TRANSPARENT
+       INC  R5                If so make FORE BLACK
+SETFB3 C    R4,R5             Check if   FORE same as BACK
+       JEQ  SETFBI            If so INC  R4 or R5 again
+       SLA  R5,4              Shift FORE back to correct slot
+       A    R5,R4             Make  FORE/BACK in same byte
+       SWPB R4                Store FORE/BACK in TEXTFB
+       MOVB R4,@TEXTFB+1
+       MOV  @TEXTFB,R0        Store FORE/BACK in VDP R7
+       BLWP @VWTR
+       B    @SETSYS           GOTO  MENU
+ 
+SETSAV BL   @DISIDD           SAVE  FORE/BACK/PRINTER to
+       BLWP @WRTSCR                 record #0
+       DATA PPWLIN
+       BL   @SETDSR
+       DATA RWPAB1,PGMPAB,25,8,OPEN+UPDIFR
+       JEQ  SETERR
+       BL   @MAKREC           Make  record #0
+       BL   @SETDSR
+       DATA RWPAB1,PGMPAB,25,8,WRITE+UPDIFR
+       JEQ  SETERR
+       BL   @GODSR
+       DATA RWPAB1,8,CLOSE+UPDIFR
+       JEQ  SETERR
+       B    @SETSYS           Return to Main Display
+ 
+SETERR BLWP @WRTSCR
+       DATA ERR01
+       BL   @SCAN
+       B    @SETSYS

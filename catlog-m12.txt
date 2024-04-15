@@ -1,0 +1,742 @@
+****************************************************************
+* CATLOG-M12  v1.01.04/11/89  DX CATLOG/DELETE/UPDATE/DISKLIST *
+****************************************************************
+*                                                              *
+* Source Published: 04/14/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1989 by Gary Bowser and Cecil Chin from O.P.A.   *
+*                                                              *
+* Credit Must Be Included When Using Source From DISKODEX 2001 *
+*                                                              *
+****************************************************************
+ 
+NEWDSK BLWP @CLEAR
+       DATA SCREEN,960
+       BLWP @WRTSCR           Display INPUT DRIVE #
+       DATA MENU$1
+       BL   @GETDRV           GET DRIVE #
+       DATA MMENU
+       BLWP @CLEAR
+       DATA SCREEN+200,760
+       INC  R7                Make LSByte  >01
+       MOV  R7,@DRVNUM        Save Drive # for REDO catlog key
+RECAT  BLWP @WRTSCR           Display Building Directory
+       DATA PPWLIN
+       MOVB @PRO,@DSKPRO
+       CLR  R3                Read Sector 0
+       BL   @SECRW
+       DATA BUF2,CATERR
+       DEC  R7                WRITE SECTOR 0
+       BL   @SECRW            IF WRITE PROTECTED JMP TO RECAT1
+       DATA BUF2,RECAT1
+       MOVB @SPACE,@DSKPRO    ELSE CLEAR DISK PROTECTED MARKER
+RECAT1 INC  R3                Read Sector 1
+       INC  R7
+       BL   @SECRW
+       DATA BUF1,CATERR
+       MOV  R1,R4             Set R4 to BUF1 for FILE link
+       BL   @SENSTR           Store DISKNAME
+       DATA BUF2,DSKSTR,10
+       BL   @SENSTR           Store DATE
+       DATA BUF2+32,DSKSTR+17,8
+       MOV  @BUF2+10,R5       Get size of disk
+       DECT R5                Sub 2 for disk headers
+       MOV  R5,@DSKSTR+10     Store TOTAL sectors
+       BL   @GETFRE
+       MOV  R5,@DSKSTR+14     Store FREE Sectors
+       BL   @CHKNAM           Check Diskname for a match or memory full
+       BL   @MAKDSK
+       BLWP @WRTSCR
+       DATA BDLINE
+       CLR  @BUF1+254         MAKE SURE ONLY 127 FILENAMES
+       SETO @FILCNT           Clear File Counter
+       MOV  @DRVNUM,R7
+NXTFIL MOV  *R4+,R3           Get next sector #
+       CI   R4,BUF2           SEE IF AT END OF SECTOR 1
+       JEQ  ENDFIL
+       CI   R3,2              MAKE SURE SECTOR # IS > THAN 1
+       JL   NXTFIL
+       C    R3,@DSKSTR+10     MAKE SURE SECTOR # IS < THAN MAX. #
+       JHE  NXTFIL
+       BL   @SECRW            Read fileheader
+       DATA BUF2,CATERR
+       INC  @FILCNT
+       BL   @MOVSTR           Store Filename
+       DATA BUF2,STOSTR,10
+       LI   R0,SCREEN+948     Display current working filename
+       LI   R1,STOSTR
+       LI   R2,10
+       BLWP @VMBW
+       BL   @SENSTR           Store Comment
+       DATA BUF2+220,STOSTR+15,35
+       MOVB @BUF2+12,@STOSTR+13     Store Type/Protect
+       MOV  @BUF2+14,R5       Get   Size
+       MOV  R5,R6             Copy  Size for Length use
+       INC  R5                Add 1 to Size for Header
+       MOV  R5,@STOSTR+10     Store Size
+       MOVB @BUF2+17,R5       Get   Record Length byte
+       JNE  STOLEN            Jump  if non program file
+       MOVB @BUF2+16,R5       Get   EOFos for Program Length
+STOLEN MOVB R5,@STOSTR+14     Store Record/Program Length
+       MOV  @FILCNT,R0        Store File string
+       BL   @CALBUF
+       DATA 50,FILBUF,STOSTR
+       BLWP @VMBW
+       JMP  NXTFIL
+ENDFIL MOV  @FILCNT,R5        Get Number of Files on disk
+       INC  R5                Add 1 to make value 0-127
+       CB   @DSKPRO,@SPACE    Check for Protected disk
+       JEQ  STODSK            Nope, then jump
+       NEG  R5                Protected so make FILES minus
+STODSK SWPB R5
+       MOVB R5,@DSKSTR+16     Store Number of Files/Protect
+ 
+DISFIL BLWP @CLEAR
+       DATA SCREEN,960
+       BL   @MAKDSK
+       MOV  @FILCNT,R5
+       JGT  DISFL3
+       JEQ  DISFL3
+       BLWP @WRTSCR
+       DATA BLKDSK
+       BLWP @CLEAR
+       DATA SCREEN+112,7
+       B    @ENDDIS
+DISFL3 SRL  R5,3
+       INC  R5
+       MOV  R5,R14
+       BL   @NUMASC
+       DATA HEAD2+38,2
+       SETO R12
+       CLR  R15
+       BLWP @WRTSCR
+       DATA HEADER
+NXTPAG LI   R13,SCREEN+240
+       INC  R15
+       MOV  R15,R5
+       BL   @NUMASC
+       DATA HEAD2+35,2
+       LI   R0,CONOFF
+       MOV  *R0,*R0+
+       JNE  DISFL2
+       INCT R0
+DISFL2 MOVB *R0+,@HEAD5+38
+       MOVB *R0+,@HEAD5+39
+       BLWP @WRTSCR
+       DATA HEADR1
+       MOV  @DRVNUM,R0
+       JNE  NXTDIS
+       BLWP @CLEAR
+       DATA SCREEN+929,6
+NXTDIS INC  R12
+       C    R12,@FILCNT
+       JLE  DISFL5
+       MOV  R13,@DISFL7
+       BLWP @CLEAR
+DISFL7 DATA 0,80
+       JMP  STPDIS
+DISFL5 BL   @MAKFIL
+       MOV  R13,R0
+       LI   R1,PRTBUF
+       LI   R2,76
+       MOV  @CONOFF,@CONOFF
+       JNE  DISFL1
+       AI   R2,-36
+       MOV  R0,@DISFL8
+       A    R2,@DISFL8
+       BLWP @CLEAR
+DISFL8 DATA 0,40
+DISFL1 BLWP @VMBW
+STPDIS AI   R13,80
+       CI   R13,SCREEN+880
+       JNE  NXTDIS
+ENDDIS MOV  @FILCNT,@FILCNT
+       JLT  DISFL4
+       BL   @MSCAN
+       DATA CATMN1
+DISFL4 BL   @MSCAN
+       DATA CATMN2
+DISRE  BLWP @CLEAR
+       DATA SCREEN,960
+       MOV  @DRVNUM,R7
+       JEQ  DISFL6
+       B    @RECAT
+DISFL6 B    @DPDSKR
+DISCOM INV  @CONOFF
+       DEC  R15
+       AI   R12,-8
+       B    @NXTPAG
+DISPAG C    R14,R15
+       JNE  NXTPAG
+       JMP  ENDDIS
+DISRT  MOV  @DRVNUM,R7
+       JEQ  DISRT2
+       B    @NEWDSK
+DISRT2 B    @MMENU
+DISBCK CI   R15,1
+       JEQ  ENDDIS
+       DECT R15
+       AI   R12,-16
+       B    @NXTPAG
+ 
+DISPRT MOV  @FILCNT,@DISPT1
+       INC  @DISPT1
+       BL   @EDTPRN
+       JEQ  DISPT2
+       BL   @NEWPAG
+       DATA PRNCAT
+DISPT1 DATA 0,DISFIL
+       CLR  R12
+NXTPRT BL   @MAKFIL
+       BL   @WRTLIN
+       DATA PRTBUF,4,76
+       INC  R12
+       C    R12,@FILCNT
+       JLE  NXTPRT
+       BL   @ENDPAG
+DISPT2 B    @DISFIL
+ 
+PGMSAV MOV  @DRVNUM,@DRVNUM
+       JEQ  ENDDIS
+       BLWP @CLEAR
+       DATA SCREEN+240,640
+       MOV  @UPDYN,@UPDYN
+       JEQ  PGMSV3
+       BL   @MOVSTR           STORE OLD DISKNAME
+       DATA DSKSTR,FORSTR,10
+       BLWP @WRTSCR           WE FOUNDED A MATCH!
+       DATA UPDLIN            Display "Update Y/N"
+PGMSV2 BL   @SCAN             Wait for a keypress
+       LI   R1,YNKEYS
+       CB   *R1+,@KEYVAL      Check for a Y key
+       JEQ  PGMSVJ            Do a save update
+       CB   *R1+,@KEYVAL      Check for a N key
+       JNE  PGMSV2            Not found,scan again
+       BLWP @WRTSCR           Display "Rename Y/N"
+       DATA UPDLN1
+PGMSV0 BL   @SCAN
+       LI   R1,YNKEYS
+       CB   *R1+,@KEYVAL      Check for a Y key
+       JEQ  PGMSVE            Do a Rename
+       CB   *R1+,@KEYVAL      Check for a N key
+       JNE  PGMSV0            Not found,scan again
+PGMSVD BL   @MOVSTR           RESTORE OLD DISKNAME
+       DATA FORSTR,DSKSTR,10
+       BL   @CHKNAM
+       B    @DISFIL           EXIT!! SINCE NO UPDATE AND NO RENAME
+PGMSVJ B    @PGMUPD           FROM UPDATE Y/N (IF Y THEN JMP HERE)
+PGMSVE BL   @MOVSTR           Move OLD Diskname to Renaming FROM string
+       DATA FORSTR,ASK06B+13,10
+       BLWP @WRTSCR           Display "Renaming (FROM) to _ "
+       DATA UPDLN2
+PGMSVF BLWP @KB               Up goes the cursor!!
+       DATA SCREEN+948,DSKSTR,10,PGMSVD
+       MOV  R0,R0             If blank line then abort
+       JEQ  PGMSVD
+       BL   @CHKNAM           Check new name
+       MOV  @UPDYN,@UPDYN     If no match
+       JEQ  PGMSVG            then RENAME the Disk
+       BLWP @GPLLNK           Else go HONK, and return to cursor
+       DATA HONK
+       JMP  PGMSVF
+PGMSVG BLWP @CLEAR
+       DATA SCREEN+840,40
+       BLWP @WRTSCR           Display "Ready to Rename"
+       DATA UPDLN3
+PGMSVH BL   @SCAN             Wait for a keypress
+       CB   @KEYVAL,@BACK     If BACK then ABORT
+       JEQ  PGMSVD
+       CB   @KEYVAL,@ENTER    If ENTER then write new diskname
+       JNE  PGMSVH            Else scan keyboard again
+       CLR  R3                READ SECTOR 0
+       MOV  @DRVNUM,R7
+       BL   @SECRW
+       DATA BUF2,CATERR
+       LI   R0,BUF2           COMPAR NAME READ WITH OLD DISKNAME
+       LI   R1,FORSTR
+       LI   R2,10
+PGMSVI C    *R0+,*R1+
+       JNE  PGMSVD            IF NOT EQUAL THEN WRONG DISK ; ABORT!
+       DECT R2
+       JNE  PGMSVI
+       BL   @MOVSTR           MOVE DISKNAME TO SECTOR 0 SLOT
+       DATA DSKSTR,BUF2,10
+       CLR  R3                WRITE SECTOR 0
+       DEC  R7
+       BL   @SECRW
+       DATA BUF2,CATERR
+PGMSV3 BL   @DISIDD
+       MOV  @DSKCNT,@DSKCNT   Check if Disks full
+       JLT  PGMSV4            if so,Display full message
+       MOV  @DDROOM,R0        Get File Slots free
+       DEC  R0
+       C    R0,@FILCNT        Check if room
+       JLT  SVFULL            none, so Display full message
+       B    @PGMADD           ROOM, so do a save
+ 
+SVFULL BLWP @CLEAR
+       DATA SCREEN+240,640
+       BLWP @WRTSCR           Display Files full message
+       DATA NOROOM
+       JMP  PGMSVC
+PGMSV4 BLWP @CLEAR
+       DATA SCREEN+240,640
+       BLWP @WRTSCR           Display Disks full message
+       DATA MENU$2
+PGMSVC BL   @SCAN             WAIT FOR A KEY then return
+       B    @DISFIL
+ 
+CATERR BLWP @WRTSCR           CATALOG ERROR
+       DATA ERR01
+       BL   @SCAN
+       B    @MMENU
+ 
+PGMUPD BL   @DISIDD
+       MOV  @DSKCNT,R0
+       BL   @CALBUF
+       DATA 26,DSKBUF,0
+       MOV  R0,R1
+       MOVB @16(R1),R5     Get # of FILES
+       SRA  R5,8
+       ABS  R5
+       MOV  R5,@OLDFIL
+       MOV  @12(R1),@OLDREC
+       DEC  R5
+       C    R5,@FILCNT
+       JNE  PGMUP2
+       MOV  @OLDREC,@DSKSTR+12
+       MOV  @OLDREC,R10
+       DEC  R10
+       MOV  R1,@PGMUP1
+       BL   @SAVDSK
+       BL   @GODSR
+       DATA RWPAB1,8,CLOSE+UPDIFR
+       BL   @MOVSTR
+       DATA DSKSTR
+PGMUP1 DATA 0,25
+       BL   @SVDSK
+       JEQ  CATERR
+       B    @NEWDSK
+ 
+PGMUP2 MOV  @DDROOM,R0        Get File slots free
+       A    R5,R0             Add old disk size
+       C    R0,@FILCNT        Check if room
+       JH   PGMUP3            Yep, so do a update
+       B    @SVFULL           Nope, so Display Full Message
+PGMUP3 SETO R12
+PGMUP4 INC  R12
+       C    R12,@NUMDSK
+       JEQ  PGMUP5
+       MOV  R12,R0
+       BL   @CALBUF
+       DATA 26,DSKBUF,0
+       MOV  R0,R1
+       C    @12(R1),@OLDREC
+       JLE  PGMUP4
+       S    @OLDFIL,@12(R1)
+       JMP  PGMUP4
+PGMUP5 BL   @MOVPGM
+ 
+PGMADD MOV  @NUMPGM,R10       get number of programs
+       MOV  R10,@DSKSTR+12    store last record #
+       INC  @DSKSTR+12        add 1 to make it first file record #
+       BL   @SAVDSK
+       MOV  @NUMDSK,R12       get # of disks
+       INC  R12               add 1 to it
+       BL   @MAKREC
+       MOV  R12,@STOSTR       store # of disks
+       MOV  R10,@STOSTR+2     store # of programs
+       BLWP @VMBW             Save record 0 to VDP
+       BL   @SETDSR           STORE RECORD 0
+       DATA RWPAB1,PGMPAB,25,8,WRITE+UPDIFR
+       JEQ  SAVERR
+       BL   @GODSR
+       DATA RWPAB1,8,CLOSE+UPDIFR
+       JEQ  SAVERR
+       MOV  @DSKCNT,R0
+       BL   @CALBUF
+       DATA 26,DSKBUF,0
+       MOV  R0,@PGMSV6
+       BL   @MOVSTR
+       DATA DSKSTR
+PGMSV6 DATA 0,25
+       MOV  R12,@NUMDSK
+       MOV  R10,@NUMPGM
+       BL   @SVDSK
+       JEQ  SAVERR
+       B    @NEWDSK
+ 
+SAVDSK MOV  R11,@SVDSK2+2
+       BL   @SETDSR           OPEN PROGRAM FILE
+       DATA RWPAB1,PGMPAB,25,8,OPEN+UPDIFR
+       JEQ  SAVERR
+       SETO R12
+SVDSK1 INC  R12
+       C    R12,@FILCNT
+       JGT  SVDSK2
+       INC  R10               store next file
+       MOV  R10,@PGMPAB+6     store record number
+       MOV  R12,R0            get adr. of FILEname string
+       BL   @CALBUF
+       DATA 50,FILBUF,0
+       MOV  R0,@PGMPAB+2
+       BL   @SETDSR           write a record
+       DATA RWPAB1,PGMPAB,25,8,WRITE+UPDIFR
+       JNE  SVDSK1
+SAVERR B    @CATERR
+SVDSK2 B    @>0000
+ 
+MOVPGM MOV  R11,@MVPGM5+2
+       BL   @SETDSR
+       DATA RWPAB1,PGMPAB,25,8,OPEN+UPDIFR
+       JEQ  SAVERR
+       MOV  @OLDREC,R12
+       A    @OLDFIL,R12
+MVPGM0 MOVB @SRTIO1+1,@VDPWA  set WVDP address to RWPAB1+6
+       MOVB @SRTIO1,@VDPWA
+       MOVB R12,@VDPWD        write record # MSByte to VDP
+       MOVB @WSPACE+25,@VDPWD write record # LSByte to VDP
+       MOVB @MOVIO1+1,@VDPWA  set WVDP address to RWPAB1
+       MOVB @MOVIO1,@VDPWA
+       MOVB @MOVRD,@VDPWD     set DSR OPcode to READ
+       CLR  R15
+       DEC  R12
+       MOV  R12,R13
+       LI   R14,MOVBUF-50
+MVPGM1 INC  R13
+       SETO R10
+       C    R13,@NUMPGM
+       JH   MVPGM2
+       CLR  R10
+       INC  R15
+       AI   R14,50
+       CI   R15,128
+       JH   MVPGM2
+       MOVB @MOVIO2+1,@VDPWA  set WVDP address to RWPAB1+2
+       MOVB @MOVIO2,@VDPWA
+       MOVB R14,@VDPWD        write buffer address MSByte to VDP
+       MOVB @WSPACE+29,@VDPWD write buffer address LSByte to VDP
+       BL   @MOVDSR
+       JMP  MVPGM1
+ 
+MVPGM2 MOV  R15,R15
+       JEQ  MVPGM4
+       CLR  R9
+       INC  R12
+       LI   R14,MOVBUF
+       S    @OLDFIL,R12
+       MOVB @SRTIO1+1,@VDPWA  set WVDP address to RWPAB1+6
+       MOVB @SRTIO1,@VDPWA
+       MOVB R12,@VDPWD        write record # MSByte to VDP
+       MOVB @WSPACE+25,@VDPWD write record # LSByte to VDP
+       MOVB @MOVIO1+1,@VDPWA  set WVDP address to RWPAB1
+       MOVB @MOVIO1,@VDPWA
+       MOVB @MOVWD,@VDPWD     set DSR OPcode to WRITE
+MVPGM3 MOVB @MOVIO2+1,@VDPWA  set WVDP address to RWPAB1+2
+       MOVB @MOVIO2,@VDPWA
+       MOVB R14,@VDPWD        write buffer address MSByte to VDP
+       MOVB @WSPACE+29,@VDPWD write buffer address LSByte to VDP
+       BL   @MOVDSR
+       INC  R9
+       AI   R14,50
+       C    R9,R15
+       JL   MVPGM3
+       DEC  R13
+       MOV  R13,R12
+       MOV  R10,R10
+       JEQ  MVPGM0
+MVPGM4 S    @OLDFIL,@NUMPGM
+       DEC  @NUMDSK
+       BL   @GODSR
+       DATA RWPAB1,8,CLOSE+UPDIFR
+       JNE  MVPGM5
+       B    @SAVERR
+MVPGM5 B    @>0000
+ 
+MOVDSR LWPI GPLWS             MOVER FAST ENTRY READ/WRITE DSR
+       MOV  @SAVPAB,@POINTR   restore DSR LINK pointers
+       MOV  @SAVENT,R9
+       MOV  @SAVCRU,R12
+       MOV  R12,@CRULST
+       MOV  @SAVLEN,@SCLEN
+       MOV  @SAVVER,R1
+       SBO  0                 Turn on card
+       BL   *R9               EXECUTE DSR LINK
+       JMP  MOVERR            Exit if error
+       MOVB @SRTIO2+1,@VDPWA  Read PAB Status byte
+       MOVB @SRTIO2,@VDPWA
+       SBZ  0                 Turn off card
+       MOVB @VDPRD,R0         Check byte for a error
+       SRL  R0,13
+       JNE  MOVERR            Exit if I/O ERROR
+       LWPI WSPACE            RETURN FROM DSR call
+       RT
+MOVERR SBZ  0                 Turn off card with I/O ERROR
+       LWPI WSPACE            RETURN FROM MOVDSR
+       BLWP @WRTSCR           Display Error Message
+       DATA ERR01
+       BL   @SCAN             Wait for a key press
+       B    @MMENU            RESET TO MAIN MENU
+ 
+CHKNAM MOV  R11,@CHKNM5+2     SAVE RETURN ADDRESS
+       CLR  @UPDYN
+       SETO R12               Setup DISKNAME compar
+CHKNM1 INC  R12               Get next DISKNAME
+       C    R12,@NUMDSK       At end of table?
+       JEQ  CHKNM3            If so,stop comparing
+       MOV  R12,R0
+       BL   @CALBUF           Read next DISKNAME
+       DATA 26,DSKBUF,DSKSTR
+       LI   R2,5
+CHKNM2 C    *R1+,*R0+
+       JNE  CHKNM1            Does not match,get next DISKNAME
+       DEC  R2                Finish comparing?
+       JNE  CHKNM2            Nope,do another WORD
+       SETO @UPDYN
+       MOV  R12,@DSKCNT
+       JMP  CHKNM5
+CHKNM3 C    @NUMDSK,@MAXDSK   Check if memory full!
+       JL   CHKNM4            if not,exit checker
+       SETO @DSKCNT
+       JMP  CHKNM5
+CHKNM4 MOV  @NUMDSK,@DSKCNT
+CHKNM5 B    @>0000
+ 
+DPDSK  BLWP @CLEAR
+       DATA SCREEN+120,840
+       BLWP @WRTSCR
+       DATA NODSKS
+       BLWP @CLEAR
+       DATA SCREEN+85,30
+       LI   R0,SCREEN+92
+       LI   R1,MENU06
+       LI   R2,16
+       BLWP @VMBW
+       CLR  @DRVNUM
+       SETO @DSKCNT
+       MOV  @NUMDSK,R5        Get amt of disks
+       JNE  DPDSKR
+       BL   @SCAN
+       B    @MMENU
+DPDSKR CLR  R15               Set page counter
+       CLR  R3
+       MOV  @NUMDSK,R5
+       MOV  R5,R12
+       DEC  R5
+       SRL  R5,4              Divide by 16
+       INC  R5                Add last page
+       MOV  R5,R14
+       BL   @NUMASC           Convert and put in dipslay slot
+       DATA AMTPG+5,2
+DPDSK1 LI   R13,SCREEN+240    Set screen write pointer
+       CLR  R6                Set marking pointer
+       INC  R15               Start counting
+       MOV  R15,R5
+       BL   @NUMASC           Convert & put in display slot
+       DATA AMTPG+2,2
+       BLWP @WRTSCR
+       DATA DISHD
+DPDSK2 DEC  R12
+       JEQ  DPDSK3            Jump if not at end
+       JGT  DPDSK3            Jump if not at end
+       MOV  R13,@DPDSKC
+       BLWP @CLEAR
+DPDSKC DATA 0,40
+       JMP  DPDSK4
+DPDSK3 MOVB @DSKSRT(R12),R0     GET SORTED DISK #
+       SRL  R0,8
+       BL   @CALBUF           Calculate position
+       DATA 26,DSKBUF,0
+       MOV  R0,@DPDSK0
+       BL   @MOVSTR
+DPDSK0 DATA 0,DSKSTR,25
+       BL   @MAKDSK
+       MOV  R13,R0
+       LI   R1,DSKST1         Set string pointer
+       LI   R2,40
+       BLWP @VMBW             Write disk info to screen
+       INC  R6                COUNT NUMBER OF LINES
+DPDSK4 AI   R13,40            Move screen write pointer to next line
+       CI   R13,SCREEN+880
+       JNE  DPDSK2
+       DEC  R6                Set flag for last line on page
+DPDSKM MOV  R3,R0             DISPLAY FLAG MARKER
+       BL   @CALBUF
+       DATA 40,SCREEN+240,MARK
+       MOVB *R1,R1
+       BLWP @VSBW
+       BL   @MSCAN            Get Menu key press
+       DATA DSKMEN
+DPUP   BL   @MVMARK
+       DEC  R3
+DPDOWN BL   @MVMARK
+       INC  R3
+MVMARK MOV  *R11,@MVMRK1
+       MOV  R3,R0
+       BL   @CALBUF
+       DATA 40,SCREEN+240,SPACE
+       MOVB *R1,R1
+       BLWP @VSBW
+MVMRK1 DATA >0000
+       MOV  R3,R3
+       JLT  MRKBCK
+       C    R3,R6
+       JLE  DPDSKM
+       DEC  R3
+GOFWD  C    R14,R15           Check if on last page
+       JEQ  DPDSKM            If last page get keystroke
+       CLR  R3
+       JMP  DPDSK1
+MRKBCK CLR  R3
+       CI   R15,1
+       JEQ  DPDSKM
+       LI   R3,15
+GOBCK  CI   R15,1             Check if on first page
+       JEQ  DPDSKM            If first page get keystroke
+       DECT R15               Calculate to go back one page
+       AI   R12,32
+       JMP  DPDSK1
+ 
+DSKPRT MOV  @NUMDSK,@DSKPT1
+       BL   @EDTPRN
+       JEQ  DSKPT4
+       BL   @NEWPAG
+       DATA PRNDSK
+DSKPT1 DATA 0,DPDSKR
+       MOV  @NUMDSK,R12
+       DEC  R12
+DSKPT2 MOVB @DSKSRT(R12),R0
+       SRL  R0,8
+       BL   @CALBUF
+       DATA 26,DSKBUF,0
+       MOV  R0,@DSKPT3
+       BL   @MOVSTR
+DSKPT3 DATA 0,DSKSTR,25
+       BL   @MAKDSK
+       BL   @WRTLIN
+       DATA DSKST1,22,40
+       DEC  R12
+       JOC  DSKPT2
+       BL   @ENDPAG
+DSKPT4 B    @DPDSKR
+ 
+DELETE BLWP @CLEAR             Clear part of screen
+       DATA SCREEN+160,800
+       BL   @CALPOS            Get disk #
+       MOV  R12,R0
+       BL   @CALBUF            Get buffer position
+       DATA 26,DSKBUF,0
+       MOV  R0,@DELET8
+       BL   @MOVSTR
+DELET8 DATA 0,DSKSTR,25
+       BL   @SENSTR            Get diskname for DELETE YN?
+       DATA DSKSTR,LINE10+8,10
+       BLWP @WRTSCR            Put up DELETE display
+       DATA DELHED
+DELET1 BL   @SCAN              Get keystroke
+       LI   R1,YNKEYS          Load YN pointer
+       CB   *R1+,@KEYVAL       Check for yes key
+       JEQ  DELET2
+       CB   *R1,@KEYVAL        Check for no key
+       JNE  DELET1             If not back to scan
+       B    @DPDSK
+DELET2 BL   @DISIDD
+       MOV  @NUMDSK,R0         Move total # of disks to R0
+       CI   R0,1               Check if total=1
+       JNE  DELET3
+       CLR  @NUMDSK            If yes make pointers 0
+       CLR  @NUMPGM
+       JMP  DEL101             Save pointers, and exit
+DELET3 MOVB @DSKSTR+16,R5      Get total files on disk
+       SRA  R5,8
+       ABS  R5                 Make # positive
+       MOV  R5,@OLDFIL         Store total files
+       MOV  @DSKSTR+12,@OLDREC Get rec # of 1st file
+       CLR  R8                 Set counter
+DELET6 MOV  R8,R0
+       BL   @CALBUF            Get buffer position
+       DATA 26,DSKBUF,0
+       MOV  R0,@DELET4+2
+       C    R8,R12             Is this rec to be Deleted ?
+       JL   DELET4             No
+       JEQ  DELET5             yes
+       MOV  R0,@DELET7
+       AI   R0,-26
+       MOV  R0,@DELET7+2
+       MOV  R0,@DELET4+2
+       BL   @MOVSTR
+DELET7 DATA 0,0,25
+DELET4 LI   R1,>0000
+       C    @12(R1),@OLDREC    Change rec # ?
+       JL   DELET5             No do not change
+       S    @OLDFIL,@12(R1)    Yes change
+DELET5 INC  R8
+       C    R8,@NUMDSK         check if at end
+       JNE  DELET6
+       BL   @MOVPGM
+DEL101 BL   @MAKREC           Get Record 0
+       BL   @SETDSR
+       DATA RWPAB1,PGMPAB,25,8,OPEN+UPDIFR
+       JEQ  DELERR
+       BL   @GODSR
+       DATA RWPAB1,8,WRITE+UPDIFR
+       JEQ  DELERR
+       BL   @GODSR
+       DATA RWPAB1,8,CLOSE+UPDIFR
+       JEQ  DELERR
+       BL   @SVDSK
+       JEQ  DELERR
+       B    @DPDSK
+DELERR B    @CATERR
+ 
+GOCAT  BLWP @CLEAR
+       DATA SCREEN+160,800
+       BL   @CALPOS           Get disk numder
+       MOV  R12,R0
+       BL   @CALBUF           Get buffer position
+       DATA 26,DSKBUF,0
+       MOV  R0,@GOCAT3
+       BL   @MOVSTR
+GOCAT3 DATA 0,DSKSTR,25
+       C    R12,@DSKCNT
+       JEQ  GOCAT2
+       BL   @DISIDD
+       BL   @SETDSR           Open input file
+       DATA RWPAB1,PGMPAB,25,8,OPEN+INPIFR
+       JEQ  DELERR
+       BLWP @WRTSCR
+       DATA BDLINE
+       BL   @MAKDSK
+       MOV  R12,@DSKCNT
+       MOV  @FILCNT,R5
+       MOV  @DSKSTR+12,@PGMPAB+6
+       DEC  @PGMPAB+6
+       LI   R0,FILBUF-50
+       MOV  R0,@PGMPAB+2
+GOCAT1 A    @DEC50,@PGMPAB+2  Put buffer adr. in PAB
+       INC  @PGMPAB+6
+       BL   @SETDSR           Read in record
+       DATA RWPAB1,PGMPAB,25,8,READ+INPIFR
+       JEQ  DELERR
+       MOV  @PGMPAB+2,R0
+       LI   R1,STOSTR
+       LI   R2,10
+       BLWP @VMBR
+       LI   R0,SCREEN+948
+       BLWP @VMBW
+       DEC  R5                Check if at end
+       JOC  GOCAT1            If yes jump
+       BL   @GODSR            Close file
+       DATA RWPAB1,8,CLOSE+INPIFR
+       JEQ  DELERR
+GOCAT2 B    @DISFIL           Go to Display routine
+ 
+CALPOS DEC  R15
+       SLA  R15,4             Muliply by 16
+       A    R15,R3
+       INC  R3
+       S    @NUMDSK,R3
+       ABS  R3
+       MOVB @DSKSRT(R3),R12
+       SRL  R12,8
+       RT

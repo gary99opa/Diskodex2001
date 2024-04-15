@@ -1,0 +1,399 @@
+****************************************************************
+* CATLOG-M3B  v1.01.04/11/89  DX SORTER > PRINT/SEARCH CATALOG *
+****************************************************************
+*                                                              *
+* Source Published: 04/14/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1989 by Gary Bowser and Cecil Chin from O.P.A.   *
+*                                                              *
+* Credit Must Be Included When Using Source from DISKODEX 2001 *
+*                                                              *
+****************************************************************
+ 
+FSTSRT EQU  >8300   >832F     SRTALL moved to high speed 16bit RAM
+ 
+********************************************************************************
+PRTCTD B    @SRTEND
+CTSRT0 LI   R8,12             set len add
+       LI   R9,FFBUF          set pointer to SETO buffer
+PRTCTA LI   R14,>0000         set pointer to end of buffer
+       SETO R13               Set files found to NONE
+       MOV  @NUMDSK,R12       Set compar counter to end
+CTSRT9 BL   @>0000            SRTALL or SRTFOR
+CTSRT6 MOV  R13,R13           Check if at end of print job
+       JLT  PRTCTD            Yes , so end it finally!
+       SETO R14               SETO TABLE PRINT COUNTER
+CTSRTB INC  R14               Add 1 to TPC
+       C    R14,R13           check if at end?
+       JH   CTSRT0            If so , exit
+       MOVB @BUF1(R14),R12    Get disk #
+       SRL  R12,8
+       MOVB @DSKSRT(R12),R6   Cal buffer address for a disk
+       SRL  R6,8
+       MPY  @DEC26,R6
+       AI   R7,DSKBUF
+       MOV  R12,R6
+       AI   R6,BUF2
+       MOVB *R6,R8
+       SRL  R8,8
+       A    @12(R7),R8        ADD FIRST RECORD # TO OFFSET
+       MOVB @SRTIO1+1,@VDPWA  set WVDP address to RWPAB1+6
+       MOVB @SRTIO1,@VDPWA
+       MOVB R8,@VDPWD         write record # MSByte to VDP
+       MOVB @WSPACE+17,@VDPWD write record # LSByte to VDP
+       LI   R1,STOSTR         READ IN FILENAME PART
+       BL   @SRTDSR
+       BL   @RDINFO           READ IN REST OF FILE STRING
+       MOVB @16(R7),R5        Get number of files on a disk
+       SRA  R5,8
+       ABS  R5
+       SWPB R5
+       AB   @DEC01,*R6        Add 1 to disk module offset
+       CB   *R6,R5            check if at end of this disk!
+       JL   CTSRT1            jump if not
+       MOVB @HEXAA,*R6        FLAG THIS DISK USED UP
+       JMP  CTSRT7
+CTSRT1 LI   R0,12             move name to slot in CATBUF
+       MPY  R12,R0
+       AI   R1,CATBUF
+       BL   @SRTDSR           READ IN FILENAME PART
+       BL   @PRETYP           Read in FILE TYPE and convert
+CTSRT7 LI   R1,PRTBUF+29      Make up Diskname in PRTBUF
+       MOVB *R7+,*R1+         0
+       MOVB *R7+,*R1+         1
+       MOVB *R7+,*R1+         2
+       MOVB *R7+,*R1+         3
+       MOVB *R7+,*R1+         4
+       MOVB *R7+,*R1+         5
+       MOVB *R7+,*R1+         6
+       MOVB *R7+,*R1+         7
+       MOVB *R7+,*R1+         8
+       MOVB *R7+,*R1+         9
+       BL   @MKFILE           Make up file in PRTBUF,etc.
+       MOV  @PRNON,R0         CHECK IF PRINTOUT NEEDED?
+       JEQ  PRTCT7            Nope, so jump print program
+       MOV  @PRNFF,R0         Check for FORMFEED's for new first letter
+       JEQ  PRTPT5            No, so jump over NEWPAG code
+       MOV  @PRNCHK,R0        Check if a line has been printed yet
+       JEQ  PRTPT4            No, so store the first letter of filename
+       CB   @STOSTR,R0        See if first letter has changed
+       JEQ  PRTPT5            No, so continue with this page
+       BL   @ENDPAG           END this PAGE
+       BL   @NEWPAG           START a new PAGE
+PRTPT2 DATA >0000           <-- PRNFIL or PRNSRT
+PRTPT3 DATA 0,SRTRST           (SRTALL)or(SRTFOR)
+PRTPT4 MOV  @STOSTR,@PRNCHK   Store new first letter
+PRTPT5 BL   @WRTLIN           PRINT IT
+       DATA PRTBUF,4,76
+PRTCT7 INC  R3                Add 1 to line counter
+       MOV  R3,R5
+       BL   @NUMASC           DISPLAY LINE NUMBER
+       DATA PRNL05+27,5
+       MOVB @SRTIO3+1,@VDPWA
+       MOVB @SRTIO3,@VDPWA
+       LI   R1,PRNL05+23
+       MOVB *R1+,@VDPWD       0
+       MOVB *R1+,@VDPWD       1
+       MOVB *R1+,@VDPWD       2
+       MOVB *R1+,@VDPWD       3
+       MOVB *R1+,@VDPWD       4
+       MOVB @SRTIO5+1,@VDPWA  DISPLAY FILE LIST
+       MOVB @SRTIO5,@VDPWA
+       LI   R1,CHRBUF
+       MOV  R1,R5
+       BL   @RDFST
+       BL   @RDFST
+       BL   @RDFST
+       BL   @RDFST
+       BL   @RDFST
+       BL   @RDFST
+       BL   @RDFST
+       BL   @RDFST+80
+       MOVB @SRTIO6+1,@VDPWA
+       MOVB @SRTIO6,@VDPWA
+       LI   R2,VDPWD
+       LI   R1,16
+WDFST  MOVB *R5+,*R2     0    WRITE DATA FAST FROM DISPLAY
+       MOVB *R5+,*R2     1
+       MOVB *R5+,*R2     2
+       MOVB *R5+,*R2     3
+       MOVB *R5+,*R2     4
+       MOVB *R5+,*R2     5
+       MOVB *R5+,*R2     6
+       MOVB *R5+,*R2     7
+       MOVB *R5+,*R2     8
+       MOVB *R5+,*R2     9
+       MOVB *R5+,*R2    10
+       MOVB *R5+,*R2    11
+       MOVB *R5+,*R2    12
+       MOVB *R5+,*R2    13
+       MOVB *R5+,*R2    14
+       MOVB *R5+,*R2    15
+       MOVB *R5+,*R2    16
+       MOVB *R5+,*R2    17
+       MOVB *R5+,*R2    18
+       MOVB *R5+,*R2    19
+       MOVB *R5+,*R2    20
+       MOVB *R5+,*R2    21
+       MOVB *R5+,*R2    22
+       MOVB *R5+,*R2    23
+       MOVB *R5+,*R2    24
+       DEC  R1                READ IN 16 BLOCKS
+       JNE  WDFST
+       LWPI GPLWS             SCAN FOR A KEY PRESS
+       MOV  R11,@PRTCTC+2
+       BL   @>000E
+PRTCTC LI   R11,>0000
+       LWPI WSPACE
+       CB   @KEYVAL,@OLDKEY   CHECK IF SAME AS LAST TIME
+       JNE  SRTKEY
+SRTNXT B    @CTSRTB           RETURN TO SORTING
+********************************************************************************
+ 
+SRTKEY MOVB @KEYVAL,@OLDKEY   Reset old key
+       CB   @KEYVAL,@BACK
+       JEQ  SRTEND            BACK so quit
+       CB   @KEYVAL,@SPACE
+       JNE  SRTNXT            no key so exit back to sort
+       BLWP @WRTSCR           paused : display message
+       DATA PTSCR3
+SRTKY1 BL   @SCAN             wait for a key
+       MOVB @KEYVAL,@OLDKEY   Reset old key
+       CB   @KEYVAL,@BACK
+       JEQ  SRTEND            BACK so quit
+       CB   @KEYVAL,@SPACE
+       JNE  SRTKY1            no key so wait again
+       BLWP @WRTSCR           unpaused : display message
+       DATA PTSCR1
+       JMP  SRTNXT
+ 
+SRTEND MOV  @PRNON,R0         END sort/Exit to menu/Close
+       JEQ  SRTED1
+       BL   @ENDPAG           DONE finally,end current page
+SRTED1 BL   @GODSR            close down files
+       DATA RWPAB1,8,CLOSE+INPIFR
+       CB   @KEYVAL,@BACK
+       JEQ  SRTRST
+       BLWP @CLEAR
+       DATA SCREEN+680,280
+       BLWP @WRTSCR
+       DATA PTSCR5
+       BL   @SCAN
+SRTRST LI   R0,FILBUF         RESET PRELD BUFFER !!!!
+       LI   R1,CATBUF
+       LI   R2,3072
+       BLWP @VMBR
+       B    @MMENU            Exit.
+ 
+********************************************************************************
+SRTFR0 B    @>0000
+SRTFOR MOV  R11,@SRTFR0+2     SEARCH FOR a file with ?
+       MOV  R9,@SRTFRB+2
+SRTFR1 DEC  R12
+       JNC  SRTFR0
+       S    R8,R14
+       MOVB @BUF2(R12),R0
+       JLT  SRTFR1
+SRTFR2 MOV  @10(R14),R0       Get FILE TYPE
+       SZC  @TYPCHK,R0        Check if wanted?
+       JNE  SRTFRF            No match, so junk this one!
+       MOV  @FORLEN,R2        Check if FILE SEARCH active?
+       JEQ  SRTFRE            NO, so check whole filename
+       LI   R5,10             Load R5 with max. filename len
+       LI   R1,FORSTR         Load R1 with FORSTR address
+       MOV  R14,R0            Load R0 with filename address
+SRTFR7 CLR  R4                Clear byte check
+SRTFR3 MOVB *R1+,R4           Get a SEARCH byte
+       CI   R4,>1F00          See if wildcard ?
+       JEQ  SRTFR4            If so,don't check for a match
+       CI   R4,>1E00          See if wildcard *
+       JEQ  SRTFIX            If so, goto suffix search mode
+       CB   R4,*R0            Compar SEARCH byte with filename
+       JNE  SRTFRF            No match, so junk this one!
+SRTFR4 INC  R0                Set pointer to next byte in filename
+       DEC  R2                Sub 1 from SEARCH length for *
+       DEC  R5                See if any more filename left
+       JNE  SRTFR3            If so, then get another byte
+SRTFRE MOV  R14,R0            WE GOT A MATCH so sort it!
+SRTFRB LI   R1,>0000
+       MOV  R8,R2
+       DECT R2
+SRTFR8 CB   *R0+,*R1+         COMPAR WITH OLD FILENAME
+       JH   SRTFR1            If higher,get next disk module
+       JL   SRTFRA            If lower,put in compar buffer
+       DEC  R2                EQUAL BYTE check for next byte
+       JNE  SRTFR8            If not end,get next byte
+       INC  R13                         FOUND ONE EQUAL,LOWER STORE IT
+SRTFR9 MOVB @12*2+WSPACE+1,@BUF1(R13)
+       JMP  SRTFR1                      get next disk module
+SRTFRA CLR  R13                         FOUND NEW LOWER ONE,JUNK TABLE
+       MOV  R14,@SRTFRB+2
+       JMP  SRTFR9
+SRTFIX DEC  R2                Check if at end of SEARCH
+       JEQ  SRTFRE            Yes, so jump to SORT IT code
+       MOV  R14,R4            Get filename address
+       AI   R4,10             Goto the end of it
+SRTFR5 DEC  R4                Check for first non space char
+       CB   *R4,@SPACE        Is it a space?
+       JEQ  SRTFR5            Yes, so go back one more
+       S    R2,R4             Sub len of search left
+       INC  R4                Adjust pointer to next byte to check
+       C    R4,R0             See if enough of filename left
+       JLE  SRTFRF            Nope, so junk this one!
+       MOV  R4,R0             Set search to new position
+       MOV  R2,R5             Set length to suffix
+       JMP  SRTFR7            Go back to the search/match
+SRTFRF INC  R3                Add 1 to line counter
+       MOVB @DSKSRT(R12),R6   Cal buffer address for a disk
+       SRL  R6,8
+       MPY  @DEC26,R6
+       AI   R7,DSKBUF
+       MOV  R12,R6
+       AI   R6,BUF2
+       MOVB @16(R7),R5
+       SRA  R5,8
+       ABS  R5
+       SWPB R5
+       AB   @DEC01,*R6
+       CB   *R6,R5
+       JL   SRTFR6
+       MOVB @HEXAA,*R6
+       JMP  SRTFR1
+SRTFR6 MOVB *R6,R5
+       SRL  R5,8
+       A    @12(R7),R5        add first record # to offset
+       MOVB @SRTIO1+1,@VDPWA  set WVDP address to RWPAB1+6
+       MOVB @SRTIO1,@VDPWA
+       MOVB R5,@VDPWD         write record # MSByte to VDP
+       MOVB @WSPACE+11,@VDPWD write record # LSByte to VDP
+       MOV  R14,R1            READ IN FILENAME PART
+       BL   @SRTDSR
+       BL   @PRETYP
+       MOV  R3,R5
+       BL   @NUMASC           DISPLAY LINE NUMBER
+       DATA PRNL05+27,5
+       MOVB @SRTIO3+1,@VDPWA
+       MOVB @SRTIO3,@VDPWA
+       LI   R1,PRNL05+23
+       MOVB *R1+,@VDPWD       0
+       MOVB *R1+,@VDPWD       1
+       MOVB *R1+,@VDPWD       2
+       MOVB *R1+,@VDPWD       3
+       MOVB *R1+,@VDPWD       4
+       LWPI GPLWS             SCAN FOR A KEY PRESS
+       MOV  R11,@SRTFRC+2
+       BL   @>000E
+SRTFRC LI   R11,>0000
+       LWPI WSPACE
+       CB   @KEYVAL,@BACK     CHECK IF BACK
+       JNE  SRTFRD
+       B    @SRTEND           If so abort sort for
+SRTFRD LI   R8,12             No key,so go on with sort for
+       B    @SRTFR2
+********************************************************************************
+SRTALL DEC  R12               Add 1 to compar counter
+       JNC  SRTAL5            if at end,next print
+       S    R8,R14            move pointer to next slot
+       MOVB @BUF2(R12),R0     check if this one done 100% ?
+       JLT  SRTALL            if so,get another
+       MOV  R14,R0
+       MOV  R9,R1
+       MOV  R8,R2
+       DECT R2
+SRTAL2 CB   *R0+,*R1+         COMPAR WITH OLD FILENAME
+       JH   SRTALL            If higher,get next disk module
+       JL   SRTAL4            If lower,put in compar buffer
+       DEC  R2                EQUAL BYTE check for next byte
+       JNE  SRTAL2            If not end,get next byte
+       INC  R13                         FOUND ONE EQUAL,LOWER STORE IT
+SRTAL3 MOVB @12*2+WSPACE+1,@BUF1(R13)
+       JMP  SRTALL                      get next disk module
+SRTAL4 CLR  R13                         FOUND NEW LOWER ONE,JUNK TABLE
+       MOV  R14,R9
+       JMP  SRTAL3
+SRTAL5 RT                     48 bytes moved to >8300->832F for FSTSRT
+********************************************************************************
+ 
+RDFST  MOVB *R15,*R1+    0    READ DATA FAST FROM DISPLAY
+       MOVB *R15,*R1+    1
+       MOVB *R15,*R1+    2
+       MOVB *R15,*R1+    3
+       MOVB *R15,*R1+    4
+       MOVB *R15,*R1+    5
+       MOVB *R15,*R1+    6
+       MOVB *R15,*R1+    7
+       MOVB *R15,*R1+    8
+       MOVB *R15,*R1+    9
+RDINFO MOVB *R15,*R1+   10          SIZE Msbyte
+       MOVB *R15,*R1+   11          SIZE Lsbyte
+       MOVB *R15,*R1+   12          DISK #
+       MOVB *R15,*R1+   13          TYPE
+       MOVB *R15,*R1+   14          LENGTH
+       MOVB *R15,*R1+   15          00  (Comment)
+       MOVB *R15,*R1+   16          01
+       MOVB *R15,*R1+   17          02
+       MOVB *R15,*R1+   18          03
+       MOVB *R15,*R1+   19          04
+       MOVB *R15,*R1+   20          05
+       MOVB *R15,*R1+   21          06
+       MOVB *R15,*R1+   22          07
+       MOVB *R15,*R1+   23          08
+       MOVB *R15,*R1+   24          09
+       MOVB *R15,*R1+   25          10
+       MOVB *R15,*R1+   26          11
+       MOVB *R15,*R1+   27          12
+       MOVB *R15,*R1+   28          13
+       MOVB *R15,*R1+   29          14
+       MOVB *R15,*R1+   30          15
+       MOVB *R15,*R1+   31          16
+       MOVB *R15,*R1+   32          17
+       MOVB *R15,*R1+   33          18
+       MOVB *R15,*R1+   34          19
+       MOVB *R15,*R1+   35          20
+       MOVB *R15,*R1+   36          21
+       MOVB *R15,*R1+   37          22
+       MOVB *R15,*R1+   38          23
+       MOVB *R15,*R1+   39          24
+RDFILE MOVB *R15,*R1+   40    0     25
+       MOVB *R15,*R1+   41    1     26
+       MOVB *R15,*R1+   42    2     27
+       MOVB *R15,*R1+   43    3     28
+       MOVB *R15,*R1+   44    4     29
+       MOVB *R15,*R1+   45    5     30
+       MOVB *R15,*R1+   46    6     31
+       MOVB *R15,*R1+   47    7     32
+       MOVB *R15,*R1+   48    8     33
+       MOVB *R15,*R1+   49    9     34
+       RT
+ 
+SRTDSR LWPI GPLWS             SORT FAST ENTRY/READ DSR
+       MOV  @SRTSV1,@POINTR   restore DSR LINK pointers
+       MOV  @SRTSV2,R9
+       MOV  @SRTSV3,R12
+       MOV  R12,@CRULST
+       MOV  @SRTSV4,@SCLEN
+       MOV  @SRTSV5,R1
+       SBO  0                 Turn on card
+       BL   *R9               EXECUTE DSR LINK
+       JMP  SRTERR            Exit if error
+       MOVB @SRTIO2+1,@VDPWA  Read PAB Status byte
+       MOVB @SRTIO2,@VDPWA
+       SBZ  0                 Turn off card
+       MOVB @VDPRD,R0         Check byte for a error
+       SRL  R0,13
+       JNE  SRTERR            Exit if I/O ERROR
+       LWPI WSPACE            RETURN FROM DSR call
+       MOVB @SRTIO4+1,@VDPWA  Set up read of filename
+       MOVB @SRTIO4,@VDPWA
+       JMP  RDFILE            READ IN FILENAME PART & RETURN
+SRTERR SBZ  0                 Turn off card with I/O ERROR
+       LWPI WSPACE            RETURN FROM SRTDSR
+       BLWP @CLEAR            Clear message area of screen
+       DATA SCREEN+680,280
+       MOV  @PRNON,R0         Check if printer on?
+       JEQ  SRTER1            If not,skip closing printer.
+       BL   @ENDPAG
+SRTER1 BLWP @WRTSCR           Display Error Message
+       DATA ERR01
+       BL   @SCAN             Wait for a key press
+       B    @SRTRST           RESET TO MAIN MENU

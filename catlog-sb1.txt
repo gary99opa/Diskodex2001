@@ -1,0 +1,456 @@
+****************************************************************
+* CATLOG-SB1  v1.01.04/11/89  DX Sub-Programs BL,BLWP's     #1 *
+****************************************************************
+*                                                              *
+* Source Published: 04/14/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1989 by Gary Bowser and Cecil Chin from O.P.A.   *
+*                                                              *
+* Credit Must Be Included When Using Source from DISKODEX 2001 *
+*                                                              *
+****************************************************************
+ 
+**********************************
+* Get Drive Number from Keyboard *
+**********************************
+GETDRV MOV  *R11+,@GDS2+2
+       MOV  R11,@GDSRT+2
+GDS1   BL   @SCAN             GET DRIVE #
+       CB   @KEYVAL,@BACK     Check for BACK key
+       JEQ  GDS2
+       CLR  R7                Clear drive # and Read flag
+       MOVB @KEYVAL,R7        Store in MSByte of R7
+       SB   @HEX30+1,R7       Make MSByte of R7 a value of 0-9
+       JEQ  GDS1              Check for a 0 pressed
+       CI   R7,>0900
+       JH   GDS1              Check for a key >9 or <0
+GDSRT  B    @>0000
+GDS2   B    @>0000            Address for BACK key
+ 
+*********************************
+* CALCULATE VDP BUFFER ADDRESS  *
+*********************************
+CALBUF MOV  *R11+,R2          GET LENGTH
+       MOV  *R11+,@CALBUG+2   GET VDP ADDRESS
+       MOV  *R11+,@CALBUH+2   GET CPU ADDRESS
+       MPY  R2,R0
+       MOV  R1,R0
+CALBUG AI   R0,>0000
+CALBUH LI   R1,>0000
+       RT
+ 
+*********************************
+* CONVERT NUMBER TO ASCII       *
+*********************************
+NUMASC MOV  *R11+,R7          Get buffer end address
+       MOV  *R11+,R8          Get buffer length
+       MOV  R4,R9             Set up first DIV
+       MOV  R5,R10
+       CI   R8,5
+       JH   NUMASE            If more than 5bytes use R4 & R5
+       JMP  NUMASI            Set up for R5 DIV only
+NUMASD MOV  R9,R10            Set up for next DIV
+       JEQ  NUMASF            If done jump
+NUMASI CLR  R9
+NUMASE DIV  @DECTEN,R9        DIV R9,R10 by 10
+       JNO  NUMASG            Not over 655,350 then jump
+       DIV  @HEX400,R9        Over 655,350 so DIV by 1024 for K
+       JNO  NUMASJ            Not over 67,107,840 then jump
+NUMASF MOVB @SPACE,*R7        Done or over 67,107,840 so fill
+       DEC  R7                rest of buffer with spaces.
+       DEC  R8
+       JNE  NUMASF
+       RT                     Return
+NUMASG A    @HEX30,R10        DIV by 10 worked so add offset
+       SLA  R10,8
+       MOVB R10,*R7           Store ASCII number
+NUMASH DEC  R7
+       DEC  R8
+       JNE  NUMASD            Do another or Return
+       RT
+NUMASJ MOVB @KILO,*R7         Over 655,350 but under 67,107,840
+       JMP  NUMASH            so switch to 'K'
+ 
+**********************************
+* Move string to correct slot    *
+**********************************
+SENSTR MOV  *R11+,R0
+       MOV  *R11+,R1
+       MOV  *R11+,R2
+STRNXT MOVB *R0+,*R1
+       CB   *R1,@SPACE
+       JL   STREND
+       CB   *R1,@HEX80+1
+       JHE  STREND
+       INC  R1
+STROK  DEC  R2
+       JEQ  STRRET
+       JMP  STRNXT
+STREND MOVB @SPACE,*R1+
+       JNE  STROK
+STRRET RT
+ 
+**********************************
+*SETUP/WRITE/END pages on printer*
+**********************************
+NEWPAG BLWP @WRTSCR
+       DATA PRINT
+       MOV  *R11+,R2          Get address of Page Header
+       MOV  *R2+,@NEWPG1      Get address of Page Title
+       MOV  R2,@NXTPG1        Store address of Header Block
+       MOV  *R11+,R6          Get Total Number of Lines
+       MOV  *R11+,@PGERR1+2   Save Error Return
+       MOV  R11,@PAGRT+2      Save Return
+       MOV  @PRNRST,R0
+       JEQ  NEWPG0
+       MOVB @PRNHEX,@PRTSET+5
+       BL   @SETDSR
+       DATA RWPAB2,PRNPAB,36,8,OPEN+APPDV
+       JEQ  PAGERR
+       BL   @WRTPRN
+       DATA PRTSET,1
+       JEQ  PAGERR
+       BL   @GODSR
+       DATA RWPAB2,8,CLOSE+APPDV
+       JEQ  PAGERR
+       CLR  @PRNRST
+NEWPG0 MOV  @PAGLEN,R0        Get Max. Number of lines per page
+       S    @PAGBLK,R0        Change to number of DATA lines left!
+       CLR  R5                Get Number of Pages from TNL
+       DEC  R6
+       DIV  R0,R5
+       INC  R5
+       BL   @SETDSR           OPEN PRINTER FILE
+       DATA RWPAB2,PRNPAB,36,8,OPEN+APPDV
+       JEQ  PAGERR            Exit, if error
+       BL   @NUMASC           Send NOP to Header Block
+       DATA PRNH02+33,3
+       BL   @SENSTR           Send Title to Header Block
+NEWPG1 DATA 0,PRNH02+13,8 <-- TITLE ADDRESS FROM "NEWPAG"
+       CLR  @ONPAG            Clear Page Counter
+       CLR  @PRNON            Clear Printer on flag
+NXTPG  INC  @ONPAG            START NEXT PAGE
+       MOV  @ONPAG,R5         Send Page # to Header Block
+       BL   @NUMASC
+       DATA PRNH02+29,3
+       BL   @WRTPRN           Write Common Header Block
+       DATA PRNPAG,2
+       JEQ  PAGERR            Exit, if error
+       BL   @WRTPRN           Write Header Block
+NXTPG1 DATA 0,3           <-- HEADER ADDRESS FROM "NEWPAG"
+       JEQ  PAGERR            Exit, if error
+       MOV  @PAGLEN,@PAGLIN   Reset Page Lines left
+       S    @PAGBLK,@PAGLIN   Change to number of DATA lines left!
+       MOV  @PRNON,@PRNON     Check if new page or next page
+       JNE  PAGCON            Exit, if NXTPAG
+       SETO @PRNON            Seto Printer on flag (new page)
+PAGRT  B    @>0000            RETURN TO CALLING PROGRAM
+ENDPAG MOV  R11,@PAGRT+2      Save Return
+       INC  @PAGLIN
+ENDPG1 MOV  @PAGLIN,@PAGLIN   Check if current page full
+       JEQ  ENDPG2            If so,jump over page filler
+       BL   @WRTPRN           Write a blank line
+       DATA PRNEND,1
+       JEQ  PAGERR            Exit, if error
+       DEC  @PAGLIN           Dec Page Lines left
+       JMP  ENDPG1            Go back & check if page full
+ENDPG2 BL   @WRTPRN
+       DATA PRNEND,6
+       BL   @GODSR            CLOSE PRINTER FILE
+       DATA RWPAB2,8,CLOSE+APPDV
+       JEQ  PAGERR            Exit, if error
+       CLR  @PRNON            Clear Printer on flag
+       JMP  PAGRT             RETURN TO CALLING PROGRAM
+WRTLIN MOV  @PRNON,@PRNON     Check if Printer on
+       JEQ  PAGERR            Exit, if not
+       MOV  R11,@WRTBLK       Save address of Line block
+       AI   R11,6             Add 6 to skip over Line block
+       MOV  R11,@PAGRT+2      Save Return
+       MOV  @PAGLIN,@PAGLIN   Check if current page full
+       JNE  PAGCON            If not,contiune on same page
+       BL   @WRTPRN
+       DATA PRNEND,7
+       JMP  NXTPG             start next page
+PAGERR CLR  @PRNON            ERROR!! (Clear Printer on flag)
+       BLWP @WRTSCR           Display I/O ERROR message
+       DATA ERR01
+       BL   @SCAN             Wait for a key
+PGERR1 B    @>0000            RETURN TO CALLING ERROR PROGRAM
+PAGCON BL   @WRTPRN           WRITE A LINE TO CURRENT PAGE
+WRTBLK DATA 0,1           <-- LINE ADDRESS FROM "WRTLIN"
+       JEQ  PAGERR            Exit, if error
+       DEC  @PAGLIN           Dec Page Lines left
+       JMP  PAGRT             RETURN TO CALLING PROGRAM
+ 
+**********************************
+* Print a block to printer       *
+**********************************
+WRTPRN MOV  *R11+,R5          Get address of Printer Table
+       MOV  *R11+,R4          Get Length of block
+       MOV  R11,@WTPRN2+2     Save Return
+WTPRN1 LI   R0,RWBUF2         Load PRINTER BUFFER address
+       MOV  *R5+,R1           Get next line address
+       JNE  WTPRN3            Jump if not a blank line
+       LI   R1,SPACE          BLANK LINE so clear length
+       LI   R2,1
+       JMP  WTPRN6            Print it
+WTPRN3 MOV  *R5+,@WTPRN5      TEXT LINE  so get tab
+       JEQ  WTPRN4            If no tab jump over TABER
+       BLWP @CLEAR            TAB over by filling front of
+       DATA RWBUF2                line with spaces
+WTPRN5 DATA >0000         <-- NUMBER OF SPACES FROM "WRTPRN"
+       A    @WTPRN5,R0        Tab over PRINTER BUFFER address
+WTPRN4 MOV  *R5+,R2           Get Length of LINE
+       BLWP @VMBW
+       A    @WTPRN5,R2        Add Tab to Length
+WTPRN6 BL   @PRTDSR           WRITE IT to printer file
+       DATA RWPAB2
+       JEQ  WTPRN2            Exit, if error
+       DEC  R4                Dec Number of Lines left
+       JNE  WTPRN1            Done, it not get next line
+       SETO R0                STRANGE CODE TO CLEAR EQ BIT
+       MOV  R0,R0             CAN ANYONE THINK OF A BETTER WAY?
+WTPRN2 B    @>0000            EQ bit set if DSR error
+ 
+**********************************
+* Convert File string to PRTBUF  *
+**********************************
+MKFILE MOV  R11,@MFILRT+2
+       JMP  MKFIL1
+MAKFIL MOV  R11,@MFILRT+2     Save Return Address
+       MOV  R12,R0            Get File String
+       BL   @CALBUF
+       DATA 50,FILBUF,STOSTR
+       BLWP @VMBR
+MKFIL1 BL   @SENSTR           Send FILENAME to PRTBUF
+       DATA STOSTR,PRTBUF+1,10
+       BL   @SENSTR           Send COMMENT to PRTBUF
+       DATA STOSTR+15,PRTBUF+41,35
+       MOVB @SPACE,@PRTBUF+27 Clear Protect P
+       MOVB @STOSTR+13,R6     Get type 1-5
+       MOV  R6,R5
+       ANDI R6,>0800
+       SZCB R6,R5
+       SRL  R5,8
+       INC  R5
+       CI   R5,2
+       JNE  TYPDAT
+       AI   R5,3
+TYPDAT CI   R5,8
+       JL   TYPFIX
+       AI   R5,-127
+TYPFIX MOV  R6,R6
+       JEQ  POSNUM
+       MOVB @PRO,@PRTBUF+27   Protected file
+POSNUM MOV  R5,R6             Send TYPE to PRTBUF
+       CI   R5,5
+       JLE  TYPOK
+       CLR  R5                TYPE is ??? !
+TYPOK  SLA  R5,2
+       AI   R5,TYPE
+       MOV  R5,@TYP
+       BL   @SENSTR
+TYP    DATA >0000,PRTBUF+17,3
+       MOV  @STOSTR+10,R5     Get size
+       BL   @NUMASC           Send SIZE to PRTBUF
+       DATA PRTBUF+15,4
+       CLR  R4                Get Record/Program Length
+       MOVB @STOSTR+14,R7
+       SRL  R7,8
+       CI   R6,5
+       JNE  SENLEN            Byte is Record Length so jump
+       DEC  R5                Sub 1 for Size header
+       MOV  R7,R7
+       JEQ  GETLEN            If no EOF os then jump
+       DEC  R5                Sub 1 for EOF sector
+GETLEN MOV  R5,R4             Mpy size by 256 for bytes
+       MPY  @HEX100,R4
+       A    R5,R7             Add offset to bytes
+       JNO  SENLEN            Jump if no overflow
+       INC  R4                Add 1 to count for overflow
+SENLEN MOV  R7,R5             Send Record/Program Length
+       BL   @NUMASC
+       DATA PRTBUF+25,6
+MFILRT B    @>0000            RT using old R11
+ 
+**********************************
+* Convert Disk String to HEADER  *
+**********************************
+MAKDSK MOV  R11,@MFILRT+2     Save Return Address
+       MOVB @DRVNUM,R0
+       JNE  MAKDK3
+       MOVB @NODRV,R0
+MAKDK3 AB   @HEX30+1,R0
+       MOVB R0,@LINE01+26
+       MOVB R0,@HEAD1+4
+       BL   @SENSTR           Put DISKNAME on header
+       DATA DSKSTR,HEAD1+6,10
+       BL   @SENSTR           Put Diskname in display slot
+       DATA DSKSTR,DSKST1+1,10
+       BL   @SENSTR           Put DATE on header
+       DATA DSKSTR+17,HEAD1+17,8
+       BL   @SENSTR           Put date in display slot
+       DATA DSKSTR+17,DSKST1+31,8
+       MOVB @PRO,@HEAD1+27
+       MOVB @DSKSTR+16,R5     Put FILES/PROTECT on header
+       SRA  R5,8
+       JLT  MAKDK1
+       MOVB @SPACE,@HEAD1+27
+MAKDK1 ABS  R5
+       BL   @NUMASC
+       DATA HEAD1+38,3
+       BL   @NUMASC           Convert & put in display slot
+       DATA DSKST1+29,3
+       DEC  R5                Store FILES for MAKFIL
+       MOV  R5,@FILCNT
+       MOV  @DSKSTR+14,R5     Put FREE on header
+       BL   @NUMASC
+       DATA HEAD2+30,4
+       BL   @NUMASC           Convert & put in display slot
+       DATA DSKST1+25,4
+       MOV  @DSKSTR+10,R5     Put TOTAL on header
+       BL   @NUMASC
+       DATA HEAD2+10,4
+       BL   @NUMASC
+       DATA DSKST1+15,4
+       S    @DSKSTR+14,R5     Get used sectors (TOTAL-FREE)
+       BL   @NUMASC           Put USED on header
+       DATA HEAD2+20,4
+       BL   @NUMASC
+       DATA DSKST1+20,4
+       BL   @SENSTR           PUT DISKNAME in Printer/Screen buffer
+       DATA DSKSTR,PRTBUF+29,10
+       JMP  MFILRT            Done. Return.
+ 
+*********************************
+* MAKE UP RECORD 0 IN STOSTR    *
+*********************************
+MAKREC MOV  R11,@MKREC0+2
+       MOV  @NUMDSK,@STOSTR
+       MOV  @NUMPGM,@STOSTR+2
+       MOVB @TEXTFB+1,@STOSTR+4
+       MOVB @PRNPAB+9,@STOSTR+5
+       BL   @SENSTR
+       DATA STAL05,STOSTR+6,25
+       MOVB @PAGLEN+1,@STOSTR+31
+       BL   @MOVSTR
+       DATA PRNHEX,STOSTR+32,18
+       LI   R0,RWBUF1
+       LI   R1,STOSTR
+       LI   R2,50
+       BLWP @VMBW
+       CLR  @PGMPAB+6
+       MOV  R0,@PGMPAB+2
+MKREC0 B    @>0000
+ 
+**********************************
+*  READ/WRITE Sectors            *
+**********************************
+SECRW  MOV  *R11,@SECRD+2     First Data is CPU buffer address for Read
+       MOV  *R11+,@SECWD+2                  and Write of sectors
+       MOV  *R11+,@SECERR+2   Next  Data is Address of branch if error
+       MOV  R11,@SECRT+2      Save Return Address when no error
+       LI   R0,BUFADR         Load VDP buffer address to DSR pointer
+       MOV  R0,@VDPADR
+       MOV  R3,@SECTNO        R3 contains Sector # to Read or Write
+       MOV  R7,@DRVRW         R7 MSByte contains Drive # and LSByte is
+       MOVB @7*2+WSPACE+1,R1     <>0 when READ and 0 when WRITE
+       JNE  SECRW1            Check if LSB is <>0 then skip Write Data
+SECWD  LI   R1,>0000       <--CPU BUFFER ADDRESS from Data in BL @SECRW
+       LI   R2,256
+       BLWP @VMBW             Transfer Sector data from CPU to VDP (WD)
+SECRW1 BL   @SETDSR           READ/WRITE a SECTOR
+       DATA PABADR,SECPAB,2,>A
+       CLR  @STATUS
+       MOVB @DSRERR,@DSRERR   Check for a error
+       JNE  SECERR            If so, exit
+       MOVB @7*2+WSPACE+1,R1  Check if LSB is = 0 then skip Read data
+       JEQ  SECRT
+       LI   R0,BUFADR
+SECRD  LI   R1,>0000       <--CPU BUFFER ADDRESS from Data in BL @SECRW
+       LI   R2,256
+       BLWP @VMBR             Transfer Sector data from VDP to CPU (RD)
+SECRT  B    @>0000            Return when done with no errors
+SECERR B    @>0000            Exit if error
+ 
+**********************************
+* Set up PAB and/or Execute DSR  *
+**********************************
+WRTDSR BLWP @VMBW             Write  Data from R1 to R0 len R2
+PRTDSR MOV  *R11,R0                  get  VDP PAB address
+       AI   R0,5                     add  length offset
+       SWPB R2                       Swap bytes of R2
+       MOVB R2,R1                    move length byte to R1
+       BLWP @VSBW             write  PAB  buffer length
+       MOV  *R11+,R0                 get  VDP PAB address
+       MOV  @HEX08,@GODSR4           set  DSRLNK type 8
+       LI   R1,WRITE                 set  MSB to WRITE opcode
+       BLWP @VSBW                    set  opcode byte 0
+       JMP  GODSR2            Jump   to   execute DSR
+GODSR  MOV  *R11+,R0          GODSR  get  VDP PAB address
+       JMP  GODSR1            Jump   over SETDSR
+SETDSR MOV  *R11+,R0          SETDSR get  VDP PAB address
+       MOV  *R11+,R1                 get  CPU PAB address
+       MOV  *R11+,R2                 get  PAB size
+       BLWP @VMBW             write  PAB  to  VDP
+GODSR1 MOV  *R11+,R2                 get  8 or >A
+       MOV  R2,@GODSR4               set  DSRLNK to 8 or >A
+       CI   R2,8              check  if   DSR type 8
+       JNE  GODSR3                   if   not execute DSR
+       MOV  *R11+,R1                 get  opcode/mode
+       MOV  R1,*R2                   save opcode/mode to CPU PAB
+       BLWP @VSBW                    set  opcode byte 0
+       INC  R0
+       SWPB R1
+       BLWP @VSBW                    set  open mode byte 1
+       DEC  R0
+GODSR2 AI   R0,9                     add  length offset
+GODSR3 MOV  R0,@POINTR               set  DSRLNK length pointer
+       BLWP @DSRLNK                       execute DSR
+GODSR4 DATA >0000                         (type 8 or >A)
+GODSR5 RT                     RT  EQ bit  set if error
+ 
+**********************************
+* EDIT PRINTER NAME (EQ IF BLANK)*
+**********************************
+EDTPRN BLWP @WRTSCR
+       DATA PRNASK
+       BLWP @KB               Edit PRINTER name
+       DATA SCREEN+933,STAL05,25,0
+       MOV  R0,@PRNPAB+8
+       RT                     Return
+ 
+**********************************
+* Move a string in CPU           *
+**********************************
+MOVSTR MOV  *R11+,R0
+       MOV  *R11+,R1
+       MOV  *R11+,R2
+MVSTR1 MOVB *R0+,*R1+
+       DEC  R2
+       JNE  MVSTR1
+       RT
+ 
+**********************************
+* SAVE DISK NAME STRINGS TO VDP  *
+**********************************
+SVDSK  MOV  R11,@SVDK4+2
+       MOV  @NUMDSK,R12
+SVDK1  DEC  R12
+       JNC  SVDK3
+       MOV  R12,R0
+       BL   @CALBUF
+       DATA 26,DSKBUF,0
+       MOV  R0,@SVDK2
+       MOV  R12,R0
+       BL   @CALBUF
+       DATA 25,FILBUF
+SVDK2  DATA 0
+       BLWP @VMBW
+       JMP  SVDK1
+SVDK3  BL   @PRESRT
+       BL   @PRELD
+       JEQ  SVDK4
+       BL   @SETDSR
+       DATA RWPAB1,DSKPAB,25,8,SAVE
+SVDK4  B    @>0000

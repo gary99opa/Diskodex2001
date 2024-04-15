@@ -1,0 +1,492 @@
+****************************************************************
+* CATLOG-S    v1.01.04/11/89  PHOENIX 2001 DISKODEX BY O.P.A.  *
+****************************************************************
+*                                                              *
+* Source Published: 04/14/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1989 by Gary Bowser and Cecil Chin from O.P.A.   *
+*                                                              *
+* Credit Must Be Included When Using Source From DISKODEX 2001 *
+*                                                              *
+****************************************************************
+ 
+* FILENAME CATALOG 50bytes RECORD 0
+*   |  | |     1         2         3| | |       4
+* 01|23|4|56789012345678901234567890|1|2|34567890123456789
+* # |# |F|^Length byte              |^ ^Length byte
+* \of\of\B\                         |^Max. lines per page
+*  \  \  \ \                        |
+*   \D \P \C\  PRINTER DEVICE NAME  |     PRINTER SETUP
+*    \i \r \o\                      |
+*     \s \o \l\      MAX. LENGTH IS |     MAX. LENGTH IS
+*      \k \g \o\                    |
+*       \s \s \r\      25 bytes     |       17 bytes
+*
+* FILENAME CATALOG 50bytes RECORD 1+ (5 files per sectors)
+*           |1 | | | |     2         3         4
+* 0123456789|01|2|3|4|56789012345678901234567890123456789
+* F         |S |D|T|L|C
+* \i         \i \i\y\e\o
+*  \l         \z \s\p\n\m
+*   \e         \e \k\e\g\m
+*    \n            \   \t\e
+*     \a            \#  \h\n
+*      \m                  \t
+*       \e
+*
+* DISKNAME CATALOG 25bytes per disk
+*               +---------------> Record # of first file
+*           |1 || |  | |   2
+* 0123456789|01|23|45|6|78901234
+* D         |T |  |F |F|D
+* \i         \o    \r \i\a
+*  \s         \t    \e \l\t
+*   \k         \a    \e \e\e
+*    \n         \l       \s
+*     \a
+*      \m
+*       \e
+*
+*     ^|     1    | |    |2|   |      |3| | |       4  |^ |     5 7
+* 01234|5678901234|5|6789|0|123|456789|0|1|2|3456789012|34|567890-9
+*     ^|F         | |S   | |T  |L     | |P| |D         |^ |C
+*     ^ \i           \i     \y  \e       \r  \i         ^  \o
+*     ^  \l           \z     \p  \n       \o  \s        ^   \m
+*     ^   \e           \e     \e  \g       \t  \k       ^    \m
+*     ^    \n                      \t       \e  \n      ^     \e
+*     ^     \a                      \h       \c  \a     ^      \n
+*     ^      \m                               \t  \m    ^       \t
+*     ^       \e                                   \e   ^
+ 
+       TITL 'PHOENIX 2001 DISKODEX v1.01.GBCC.OPA'
+       IDT  'DISKODEX'
+       AORG >A000
+       DEF  SFIRST,SLAST,SFREE
+ 
+*********** VDP BUFFER EQUATES
+PATERN EQU  >0000 >03FF 1024b 128 chars PATTERNS TABLE        R4=00
+SCREEN EQU  >0400 >06FF  768b GRAPHICS screen table   * TEXT  R2=01
+STABLE EQU  >0700 >077F  128b GRAPHICS sprite table   * TEXT  R5=0E
+COLOR  EQU  >0780 >079F   32b GRAPHICS color  table   * TEXT  R3=1E
+VDPGWS EQU  >07A0 >07BF   32b GRAPHICS roll out pad   * TEXT
+FILBUF EQU  >07C0 >208D 6350b 127 * 50b CATLOG_PGM      _DSK buffer
+MOVBUF EQU  >208E >398D 6400b 128 * 50b MOVER BUFFER    _DSK buffer
+BUFADR EQU  >37FE -----  256b Read/Write buffer for sectors
+RWBUF2 EQU  >38FE -----   80b Read/Write buffer #2 (PRINTER)
+RWBUF1 EQU  >394E -----   50b Read/Write buffer #1 (CATLOG_PGM)
+PABADR EQU  >3980 -----   14b Read/Write sector pab or other >A's
+RWPAB1 EQU  >398E >39B1   36b Read/Write pab    #1 (CATLOG_PGM)
+RWPAB2 EQU  >39B2 >39D5   36b Read/Write pab    #2 (PRINTER)
+* >>>>>>>>  >39D6 >39DD    8b FREE SPACE! Don't know what to use it for
+VDSKBF EQU  >39DE >3FFF 1570b DSK buffer CALL FILES(2)
+SCHARS EQU  >2000 ----- 2048b GRAPHICS PATTERN TABLE R4=04 R6=04
+ 
+*********** EQUATES
+OPEN   EQU  >0000   DSR OP equates
+CLOSE  EQU  >0100
+READ   EQU  >0200
+WRITE  EQU  >0300
+LOAD   EQU  >0500
+SAVE   EQU  >0600
+UPDIFR EQU  >0009   UPDATE,INTERNAL,FIXED,RELATIVE
+OUTIFR EQU  >000B   OUTPUT,INTERNAL,FIXED,RELATIVE
+INPIFR EQU  >000D   INPUT ,INTERNAL,FIXED,RELATIVE
+OUTDV  EQU  >0012   OUTPUT,DISPLAY ,VARIABLE
+APPDV  EQU  >0016   APPEND,DISPLAY ,VARIABLE
+GPLBCS EQU  >0016   Load Big   Char Set
+GPLUCS EQU  >0018   Load Upper Char Set
+BEEP   EQU  >0034   Accept Tone
+HONK   EQU  >0036   Bad Respone Tone
+GPLLCS EQU  >004A   Load Lower Char Set
+ 
+*********** CPU PAD EQUATES
+FAC    EQU  >834A   If error cont. 0, no error cont. sector #
+DRVRW  EQU  >834C   >834C cont. drive #, >834D 1 to read/0 to write
+NUMFIL EQU  >834C   Max. Number of "DSK" Files
+VDPADR EQU  >834E   Cont. VDP Buffer adr.
+DSRERR EQU  >8350   RTed DSR error code for >A's
+SECTNO EQU  >8350   Cont. sector #
+SCLEN  EQU  >8354   DSR Name Length
+POINTR EQU  >8356   DSR Pointer to Length byte
+KEYADR EQU  >8374   Keyboard Address 0-5
+KEYVAL EQU  >8375   Key value
+TIMER  EQU  >8379   Key Timer
+STATUS EQU  >837C   GPL Status
+OSCTRL EQU  >83C2   O.S. Control for Sprite/Sound/Quit
+USRINT EQU  >83C4   User Assembly Interrupt Pointer
+SNDADR EQU  >83CC   Address of Sound Table
+SNDNUM EQU  >83CE   Number of Sound Bytes Left
+CRULST EQU  >83D0   DSR ROM search cru
+SADDR  EQU  >83D2   DSR ROM search address
+VDPR1  EQU  >83D4   Copy of VDP R1 for screen time-out
+SCROUT EQU  >83D6   Screen time-out counter (if odd no blank in 10mins)
+VDPRD  EQU  >8800   VDP Read  Data
+VDPSTA EQU  >8802   VDP Read  Status
+VDPWD  EQU  >8C00   VDP Write Data
+VDPWA  EQU  >8C02   VDP Write Address
+ 
+SFIRST LIMI 0                 SETUP OF DISKODEX 2001
+       LWPI WSPACE
+       LI   R0,>01B0          SETUP VDP MODE (screen off)
+       BLWP @VWTR
+       LI   R0,>0201          Name table
+       BLWP @VWTR
+       LI   R0,>031E          Color table
+       BLWP @VWTR
+       LI   R0,>0404          Pattern table
+       BLWP @VWTR
+       LI   R0,>050E          Sprite table
+       BLWP @VWTR
+       LI   R0,>0604          Sprite Pattern table
+       BLWP @VWTR
+       MOV  @TEXTFB,R0        Fore/Back color
+       BLWP @VWTR
+       LI   R0,SCHARS+256     Load Sprite Text 32-95
+       MOV  R0,@FAC
+       BLWP @GPLLNK
+       DATA GPLBCS
+       LI   R0,SCHARS+768     Load Sprite Text 96-126
+       MOV  R0,@FAC
+       BLWP @GPLLNK
+       DATA GPLLCS
+       LI   R0,COLOR          Load Title Color Set
+       LI   R1,TITCLR
+       LI   R2,32
+       BLWP @VMBW
+       LI   R0,STABLE         Load Title Sprite Table
+       LI   R1,TTSPR2
+       LI   R2,50
+       BLWP @VMBW
+       LI   R0,SCHARS+8       Load Title special chars 1-8
+       LI   R1,TITPAT
+       LI   R2,64
+       BLWP @VMBW
+       LI   R0,SCHARS+1024    Load Sprite chars 128-167
+       LI   R1,SPRPAT
+       LI   R2,320
+       BLWP @VMBW
+       BLWP @CLEAR
+       DATA SCREEN,768
+       BLWP @WRTSCR           Display Title Screen
+       DATA TITSCR
+       LI   R0,SCREEN+371     Write a >FF to screen because the WRTSCR
+       SETO R1                command does not allow a >FF char!
+       BLWP @VSBW
+       LI   R0,>E201          TURN ON GRAPHICS SCREEN
+       MOVB R0,@VDPR1
+       SWPB R0
+       BLWP @VWTR
+       LI   R0,GOBIRD
+       MOV  R0,@USRINT
+KEYBRD BLWP @KSCAN
+       LIMI 2
+       LIMI 0
+       MOVB @STATUS,R0
+       JEQ  KEYBRD
+       CLR  @USRINT
+       BLWP @CLEAR            Clear screen
+       DATA SCREEN,960
+       LI   R0,>0400
+       BLWP @VWTR
+       LI   R0,>F001          TURN ON TEXT SCREEN
+       MOVB R0,@VDPR1
+       SWPB R0
+       BLWP @VWTR
+       LI   R0,PATERN         Load Reverse Video A-Z (65-90) 0-25
+       LI   R1,RVCHAZ
+       LI   R2,208
+       BLWP @VMBW
+       A    R2,R0             Load CHARA1 chars 26-127
+       LI   R1,CHARA1
+       LI   R2,816
+       BLWP @VMBW
+       LI   R0,PRTBUF         Fill buffer with spaces used
+       LI   R1,>2020          by filename strings for screen
+       LI   R2,80             and printer
+CLRBUF MOV  R1,*R0+
+       DECT R2
+       JNE  CLRBUF
+       MOVB @TC2+1,@KEYADR    SET KEYBOARD FOR UpperCase only!!!
+       INC  @SCROUT           SET SCREEN TIME-OUT FOR NO AUTO-BLANKER
+       MOVB @SYSOS,@OSCTRL    SET O.S. for no Sprite Motion and QUIT
+       LI   R0,>0200          CALL FILES(2)
+       MOVB R0,@NUMFIL
+       BL   @SETDSR
+       DATA PABADR,FILPAB,2,>A
+       MOVB @DSRERR,@DSRERR   If no error jump to SETCHR
+       JEQ  SYSSET
+SYSEXT BLWP @0                Goto TI MAIN TITLE SCREEN
+SYSSET BLWP @CLEAR            SYSTEM SETUP OF DATADISK
+       DATA SCREEN,960
+       BLWP @WRTSCR
+       DATA SYSSCR
+       BL   @GETDRV           Get a drive # 1-9 or BACK for aborting
+SYSBCK DATA SYSEXT            FIRST TIME AROUND EXIT TO TI TITLE SCREEN
+       INC  R7                NEXT  TIME AROUND EXIT BACK TO MAIN MENU
+       MOV  R7,@SAVDRV        Save Drive # and store it in PABS
+       MOVB @SAVDRV,@DSKPAB+13
+       AB   @HEX30+1,@DSKPAB+13
+       MOVB @DSKPAB+13,@PGMPAB+13
+       MOVB @DSKPAB+13,@ASK04+22
+       BLWP @CLEAR
+       DATA SCREEN+200,720
+       BL   @MAKREC           Reset to Record 0
+       BL   @SETDSR           Try to find CATLOG_PGM
+       DATA RWPAB1,PGMPAB,25,8,OPEN+INPIFR
+       JNE  OLDSYS            If there Load DATA DISK else make it
+       BL   @GETINF           CREATE NEW DATADISK
+       DATA NEWASK,SAVE,OPEN+OUTIFR
+       CLR  @NUMDSK           Reset Pointers and RECORD 0
+       CLR  @NUMPGM
+       LI   R0,66             Set normal page length to 66 lines
+       MOV  R0,@PAGLEN
+       LI   R0,>021B          Set normal printer setup to ESC '@'
+       MOV  R0,@PRNHEX
+       LI   R0,>4000
+       MOV  R0,@PRNHEX+2
+       BL   @MAKREC
+       BL   @SETDSR
+       DATA RWPAB1,PGMPAB,25,8,WRITE+OUTIFR
+       JEQ  SYSERR
+       BL   @GODSR            CLOSE NEW PGM FILE
+       DATA RWPAB1,8,CLOSE+OUTIFR
+       JEQ  SYSERR
+       JMP  SYSMM             Goto main menu
+OLDSYS BL   @GODSR            LOAD OLD DATADISK
+       DATA RWPAB1,8,CLOSE+INPIFR
+       JEQ  SYSERR
+       BL   @GETINF
+       DATA OLDASK,LOAD,OPEN+INPIFR
+       BL   @GODSR            GET RECORD 0
+       DATA RWPAB1,8,READ+INPIFR
+       JEQ  SYSERR
+       LI   R0,RWBUF1
+       LI   R1,STOSTR
+       LI   R2,50
+       BLWP @VMBR
+       MOV  @STOSTR,@NUMDSK     Store # of Disks
+       MOV  @STOSTR+2,@NUMPGM   Store # of Programs
+       MOVB @STOSTR+4,@TEXTFB+1 Store TEXT color
+       MOVB @STOSTR+5,@PRNPAB+9 Store Printer Length
+       BL   @SENSTR             Store Printer name
+       DATA STOSTR+6,STAL05,25  Store Max. lines per page
+       MOVB @STOSTR+31,R0
+       SRL  R0,8
+       MOV  R0,@PAGLEN
+       BL   @MOVSTR
+       DATA STOSTR+32,PRNHEX,18
+       BL   @GODSR
+       DATA RWPAB1,8,CLOSE+INPIFR
+       JEQ  SYSERR
+       BL   @PRESRT
+       BL   @PRELD
+       JEQ  SYSERR
+SYSMM  SETO @PRNRST
+       LI   R11,MMENU         Set BACK on SYSTEM SETUP for MAIN MENU
+       MOV  R11,@SYSBCK       instead of TI TITLE SCREEN
+       RT                     GOTO MAIN MENU
+SYSERR BLWP @WRTSCR           DISK ERROR
+       DATA ERR01
+       BL   @SCAN
+       B    @SYSSET
+ 
+GETINF MOV  *R11+,@GTINF1     GET INFO ON DATA DISK
+       MOV  *R11+,@GTINF3
+       MOV  *R11+,@GTINF4
+       MOV  R11,@GTINF5+2
+       BLWP @WRTSCR
+GTINF1 DATA >0000
+       MOV  @SAVDRV,R7
+       CLR  R3
+       BL   @SECRW
+       DATA BUF2,SYSERR
+       MOV  @HEX100,@MAXDSK
+       MOV  @DSK100,@DSKPAB+6
+       MOV  @DSK100+2,@MAXFIL
+       C    @BUF2+10,@HEX2D0
+       JHE  GTINF2
+       MOV  @HEX80,@MAXDSK
+       MOV  @DSK80,@DSKPAB+6
+       MOV  @DSK80+2,@MAXFIL
+GTINF2 BLWP @CLEAR
+       DATA DSKBUF,6400
+       BL   @SETDSR
+       DATA RWPAB1,DSKPAB,25,8
+GTINF3 DATA >0000
+       JEQ  SYSERR
+       BL   @MAKREC
+       BL   @SETDSR
+       DATA RWPAB1,PGMPAB,25,8
+GTINF4 DATA >0000
+       JEQ  SYSERR
+       BL   @SENSTR
+       DATA BUF2,DSKID,10
+       MOV  @BUF2+10,R0
+       S    @MAXFIL,R0
+       MPY  @DEC05,R0
+       MOV  R1,@MAXFIL
+GTINF5 B    @>0000
+ 
+MMENU  MOV  @TEXTFB,R0        MAIN MENU DISPLAY/SCAN
+       BLWP @VWTR
+       BLWP @CLEAR
+       DATA SCREEN,960
+       BLWP @WRTSCR
+       DATA MMSCR
+       BL   @MSCAN
+       DATA MANMEN
+TEP    BLWP @WRTSCR           TO END PROGRAM (Are you sure?)
+       DATA ENDLIN
+TEP1   BL   @SCAN             Wait for key
+       LI   R1,YNKEYS         Load R1 with key table
+       CB   *R1+,@KEYVAL      Check if Y
+       JEQ  TEPEND            Yes,quit!
+       CB   *R1+,@KEYVAL      Check if N
+       JNE  TEP1              Not, wait for another key
+       B    @MMENU            N so branch back to menu
+TEPEND BLWP @0                QUIT TO TI TITLE SCREEN
+ 
+GOBIRD LIMI 0                 PHOENIX/TITLE INT CODE
+       LWPI BRDWS
+       DEC  R5
+       JNE  BIRD6
+       LI   R5,32
+       MOV  @SPRCNT,R0
+       JNE  BIRD7
+BIRD9  INC  R4
+       MOV  *R4+,R0
+       MOV  *R4+,R1
+       MOVB R0,@VDPR1
+       MOVB R0,@VDPWA
+       MOVB @BRDWS+1,@VDPWA
+       LI   R0,STABLE+>4000
+       LI   R2,50
+       CLR  @SPRCNT
+       INC  @SPRCNT
+       JMP  BIRD3
+BIRD7  CI   R0,8
+       JLE  BIRD8
+       INC  R4
+       CLR  R0
+       INC  R0
+       CLR  @SPRCNT
+BIRD8  CLR  R1
+       MOVB *R4,R1
+       JEQ  BIRD9
+       JGT  BIRDA
+       MOV  @1(R4),R4
+       CLR  @SPRCNT
+       JMP  EDBIRD
+BIRDA  SLA  R0,2
+       AI   R0,STABLE+>3FFF
+       MOVB @BRDWS+1,@VDPWA
+       MOVB R0,@VDPWA
+       MOVB @BRDWS+2,@VDPWD
+       INC  @SPRCNT
+BIRD6  DEC  R7
+       JNE  EDBIRD
+       C    R3,R9
+       JHE  BIRD1
+       MOV  R12,R7
+       MOV  R15,R0
+       MOV  *R3+,R1
+       MOV  R14,R2
+       JMP  BIRD3
+BIRD1  MOV  R10,R7
+       CI   R3,CODEND
+       JL   BIRD2
+       MOV  R9,R3
+       DEC  R6
+       JNE  BIRD2
+       MOV  R11,R6
+       MOV  R8,R3
+       JMP  EDBIRD
+BIRD2  MOV  R15,R0
+       MOV  R14,R2
+       MOVB *R3+,R1
+       SRA  R1,8
+       JGT  BIRD3A
+       ABS  R1
+       SLA  R1,9
+       A    R13,R0
+       A    R13,R1
+       S    R13,R2
+       JMP  BIRD3B
+BIRD3A ABS  R1
+       SLA  R1,9
+BIRD3B AI   R1,D11
+BIRD3  MOVB @BRDWS+1,@VDPWA
+       MOVB R0,@VDPWA
+BIRD4  MOVB *R1+,@VDPWD
+       DEC  R2
+       JNE  BIRD4
+EDBIRD LWPI GPLWS
+       RT
+ 
+       COPY "DSK9.CATLOG-M12" CATALOG A DISK/DISPLAY FILES
+       COPY "DSK9.CATLOG-M3A" SETUP of PRINT/SEARCH  CATALOG
+       COPY "DSK9.CATLOG-M3B" SORTER > PRINT/SEARCH  CATALOG
+       COPY "DSK9.CATLOG-M45" DISPLAY STATUS/SYSTEM  SETUP
+       COPY "DSK9.CATLOG-SB1" SUB-PROGRAMS BL,BLWP's #1
+       COPY "DSK9.CATLOG-SB2" SUB-PROGRAMS BL,BLWP's #2
+       COPY "DSK9.CATLOG-DB1" DATA BLOCK             #1
+ 
+CATBUF BSS  3072    3k   12 * 256 Buffer for sorting catalog
+ 
+SLAST  EQU  $ (END OF HIGH MEMORY, START OF FREE SPACE)
+SFREE  EQU  >FFFF-SLAST+1  (WITH RAG LINKER PRINTOUT,TELLS AMOUNT FREE)
+ 
+       COPY "DSK9.CATLOG-LOW" LOW MEMORY CODE (MUST BE LAST FILE)
+ 
+       DORG >2000 to >2FFF                               **************
+DSKBUF BSS  6656  Buffer for 256 * 26b diskname table*   * CATLOG-LOW *
+CHRBUF BSS  360   Buffer for screen scroll               * goes here, *
+PRTBUF BSS  80    Buffer for filenames                   * so do not  *
+DSKSRT BSS  256   Disk Name # sort table                 * use this   *
+BUF1   BSS  256   Buffer for Sector 1                    * area until *
+BUF2   BSS  256   Buffer for Headers and Sector 0        * the title  *
+DSKSTR BSS  26    Buffer for current DISKNAME string     * screen is  *
+STOSTR BSS  50    Buffer to store strings                * gone.      *
+NAMBUF BSS  10    DISK/FILE/DSR Name Buffer for search   *            *
+DSKID  BSS  10    DISKNAME OF DATA DISK                  *            *
+FORSTR BSS  10    FILE SEARCH STRING for sorter          *            *
+PRNHEX BSS  18    Printer hexadecimal setup string       *            *
+TOTSEC DATA 0,0   TOTAL SECTORS ON ALL DISKS             *            *
+TOTUSD DATA 0,0   TOTAL USED    ON ALL DISKS             *            *
+TOTFRE DATA 0,0   TOTAL FREE    OM ALL DISKS             *            *
+NUMDSK DATA 0     # of Disks on Data Disk                *            *
+NUMPGM DATA 0     # of Files on Data Disk                *            *
+MAXDSK DATA 0     Max. # of Disks on Data Disk           *            *
+MAXFIL DATA 0     Max. # of Files on Data Disk           *            *
+DDROOM DATA 0     File Slots Free on Data Disk           *            *
+SAVDRV DATA 0     Saved   Drive # of Data Disk           *            *
+DRVNUM DATA 0     catalog Drive #                        *            *
+DSKCNT DATA 0     current working disk #                 *            *
+FILCNT DATA 0     # of files on current disk             *            *
+UPDYN  DATA 0     Update on/off                          *            *
+OLDFIL DATA 0     Old # of files                         *            *
+OLDREC DATA 0     Old # of First file record             *            *
+ONPAG  DATA 0     Current Page # on Printer              *            *
+PRNON  DATA 0     Printer On/Off flag SETO/CLR           *            *
+PRNFF  DATA 0     Printer FORMFEED flag SETO/CLR         *            *
+PRNCHK DATA 0     Printer first letter check character   *            *
+PRNRST DATA 0     Printer RESET needed flag              *            *
+PAGLIN DATA 0     Page Lines Left                        *            *
+PAGLEN DATA 0     Max. lines per printer page            *            *
+OLDKEY DATA 0     Old Key                                *            *
+FORLEN DATA 0     Length of Sort for string              *            *
+SRTSV1 DATA 0     SORT DSR Save of pointer               *            *
+SRTSV2 DATA 0     SORT DSR Save of card entry address    *            *
+SRTSV3 DATA 0     SORT DSR Save of card CRU   address    *            *
+SRTSV4 DATA 0     SORT DSR Save of length                *            *
+SRTSV5 DATA 0     SORT DSR Save of version               *            *
+SAVPAB DATA 0     DSR Save of pointer                    *            *
+SAVENT DATA 0     DSR Save of card entry address         *            *
+SAVCRU DATA 0     DSR Save of card CRU   address         *            *
+SAVLEN DATA 0     DSR Save of length                     *            *
+SAVVER DATA 0     DSR Save of version                    *            *
+FREEWS BSS  34    (Don't used until after TITLE screen)  * CATLOG-LOW *
+DSRWS  BSS  32    R0-R15 for DSRLNK                      **************
+UTILWS BSS  32    R0-R15 for BLWP's
+WSPACE BSS  32    R0-R15 for main code
+       END

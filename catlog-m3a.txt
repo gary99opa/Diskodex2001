@@ -1,0 +1,265 @@
+****************************************************************
+* CATLOG-M3A  v1.01.04/11/89  DX SETUP of PRINT/SEARCH CATALOG *
+****************************************************************
+*                                                              *
+* Source Published: 04/14/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1989 by Gary Bowser and Cecil Chin from O.P.A.   *
+*                                                              *
+* Credit Must Be Included When Using Source from DISKODEX 2001 *
+*                                                              *
+****************************************************************
+ 
+PRTCT9 BLWP @CLEAR            Clear Screen
+       DATA SCREEN+120,840
+       BLWP @WRTSCR           Display "NO DISKS IN MEMORY"
+       DATA PTSCR4
+       BL   @SCAN             Wait for a key press and then
+PRTEXT B    @MMENU            EXIT to the Main Menu
+ 
+PRTCAT BLWP @CLEAR            *** Clear Screen
+       DATA SCREEN+120,840
+       BLWP @WRTSCR           Display "MAIN SETUP MENU"
+       DATA PRTSCR
+       MOV  @NUMDSK,R0                  Check if any disks in memory
+       JEQ  PRTCT9                      If not, then exit to main menu
+       MOVB @FORCHK,@LINE20+29          Clear FILE SEARCH STRING line
+       BL   @SENSTR                     It is cleared because SENSTR
+       DATA LINE20+29,FORSTR,10         writes spaces after a <32 char
+PTFOR0 BLWP @KB                         Display Cursor and get input
+       DATA SCREEN+343,FORSTR,10,MMENU  (BACK is Main Menu)
+       MOV  R0,@FORLEN                  Store length of FORSTR typed.
+       BL   @MOVSTR                     GOT A GOOD STRING so store it
+       DATA FORSTR,LINE20+29,10
+       MOV  @FORLEN,R0                  Check for anything typed?
+       JEQ  PRTCTE                      If blank line then don't check
+       LI   R1,FORSTR         Check STRING for *'s,SPACE,PERIOD
+       CLR  R2                Clear wildcard *'s counter
+PTFOR1 CB   *R1,@SPACE        Check if byte is a SPACE
+       JEQ  PTFOR0            If so, then return to cursor
+       CB   *R1,@PERIOD       Check if byte is a PERIOD
+       JEQ  PTFOR0            If so, then return to cursor
+       CB   *R1+,@FORCHK      Check if byte is a wildcard *
+       JNE  PTFOR2            If not, then don't count it
+       INC  R2                Add 1 to *'s counter
+PTFOR2 DEC  R0                Check if at end of FORSTR
+       JNE  PTFOR1            Nope, so check next byte
+       CI   R2,1              See if more than one * founded
+       JH   PTFOR0            If so, then return to cursor
+PRTCTE BLWP @WRTSCR           Display "DISK SEARCH STRING" prompts
+       DATA PTSCRA
+       MOVB @FORCHK,@DSKSTR             Clear DISK SEARCH STRING line
+       BL   @SENSTR                     It is cleared because SENSTR
+       DATA DSKSTR,DSKSTR,10            writes spaces after a <32 char
+PTDSK0 BLWP @KB                         Display Cursor and get input
+       DATA SCREEN+343,DSKSTR,10,MMENU  (BACK is Main Menu)
+       MOV  R0,@DSKCNT                  Check for anything typed?
+       JEQ  PTDSK3                      If blank line then don't check
+       LI   R1,DSKSTR         Check STRING for *'s,SPACE,PERIOD
+       CLR  R2                Clear wildcard *'s counter
+PTDSK1 CB   *R1,@SPACE        Check if byte is a SPACE
+       JEQ  PTDSK0            If so, then return to cursor
+       CB   *R1,@PERIOD       Check if byte is a PERIOD
+       JEQ  PTDSK0            If so, then return to cursor
+       CB   *R1+,@FORCHK      Check if byte is a wildcard *
+       JNE  PTDSK2            If not, then don't count it
+       INC  R2                Add 1 to *'s counter
+PTDSK2 DEC  R0                Check if at end of DSKSTR
+       JNE  PTDSK1            Nope, so check next byte
+       CI   R2,1              See if more than one * founded
+       JH   PTDSK0            If so, then return to cursor
+PTDSK3 BLWP @CLEAR            Clear no longer needed prompts
+       DATA SCREEN+200,760
+       BLWP @WRTSCR           Display "FILE TYPE SELECTOR"
+       DATA PTSCR8
+PRTYPE CLR  R2
+       LI   R3,SCREEN+484
+PRTYP0 LI   R4,>2000
+       LI   R0,16
+       LI   R1,1
+       S    R2,R0
+       SRC  R1,0
+       SZC  @TYPCHK,R1
+       JNE  PRTYP1
+       LI   R4,>7F00
+PRTYP1 MOV  R3,R0
+       MOV  R4,R1
+       BLWP @VSBW
+       AI   R3,40
+       INC  R2
+       CI   R2,5
+       JLE  PRTYP0
+PRTYP2 BL   @SCAN
+       MOVB @KEYVAL,R2
+       SRL  R2,8
+       CI   R2,6              Redo key pressed?
+       JEQ  PRTYP3
+       CI   R2,13             Enter key pressed?
+       JEQ  PRTYP5
+       CI   R2,15             Back key pressed?
+       JEQ  PRTYP4
+       CI   R2,48             A key lower than 0 pressed?
+       JL   PRTYP2
+       CI   R2,53             A key higher than 5 pressed?
+       JH   PRTYP2
+       AI   R2,-48
+       LI   R1,1
+       LI   R0,16
+       S    R2,R0
+       SRC  R1,0
+       XOR  @TYPCHK,R1
+       MOV  R1,@TYPCHK
+       JMP  PRTYPE
+PRTYP3 B    @PRTCAT           REDO  (Return to start of MM4)
+PRTYP4 B    @MMENU            BACK  (Return to main menu)
+PRTYP5 BLWP @CLEAR            ENTER (Continue with MM4 Setup)
+       DATA SCREEN+120,840
+       BLWP @WRTSCR
+       DATA PTSCR6
+       CLR  @PRNON
+       LI   R15,LN12A
+PRTCT4 BL   @SCAN
+       CB   @KEYVAL,@BACK
+       JEQ  PRTYP4
+       CB   @KEYVAL,@CATKEY+3
+       JEQ  PTSCR
+       CB   @KEYVAL,@ERRL01+3
+       JNE  PRTCT4
+       CLR  @PRNCHK
+       CLR  @PRNFF
+       BLWP @WRTSCR
+       DATA PTSCR9
+PRTPT0 BL   @SCAN
+       CB   @KEYVAL,@BACK
+       JEQ  PRTYP5
+       CB   @KEYVAL,@YNKEYS+1
+       JEQ  PRTPT1
+       CB   @KEYVAL,@YNKEYS
+       JNE  PRTPT0
+       SETO @PRNFF
+PRTPT1 BLWP @WRTSCR
+       DATA PTSCR2
+       BL   @EDTPRN
+PRTCTF JEQ  PRTYP4
+       SETO @PRNON
+       AI   R15,8
+       LI   R0,STAL05
+       LI   R1,PGMPAB+10
+       LI   R2,3
+PRTCT5 CB   *R0+,*R1+
+       JNE  PTSCR
+       DEC  R2
+       JNE  PRTCT5
+       AI   R15,8
+PTSCR  MOV  R15,@PRTCT3
+       BL   @SENSTR
+PRTCT3 DATA 0,LINE12+20,8
+       LI   R15,PRNFIL        SET PRINTER FOR (FILES)
+       LI   R14,FSTSRT        SET BRANCH FOR SORT ALL
+       LI   R1,63             Check if all TYPES?
+       C    R1,@TYPCHK
+       JNE  PTFOR4            If not, then do "SORT FOR"
+       MOV  @FORLEN,R0        Check if file search?
+       JEQ  PTFOR5            If not, then do "SORT ALL"
+PTFOR4 LI   R15,PRNSRT        SET PRINTER FOR (SEARCH)
+       LI   R14,SRTFOR        SET BRANCH FOR SORT FOR
+       BLWP @WRTSCR           Display "Searching for records"
+       DATA PTSCR7
+PTFOR5 MOV  R14,@CTSRT9+2     Store SRTALL or SRTFOR in branch
+       MOV  R15,@PRTCTB       Store PRNFIL or PRNSRT for NEWPAG
+       MOV  R15,@PRTPT2       Store PRNFIL or PRNSRT for NEWPAG
+       BLWP @CLEAR            Clear no longer needed prompts
+       DATA SCREEN+760,200
+       BL   @DISIDD           SET UP DATA DISK FOR SORTING
+       MOV  @NUMPGM,R5
+       BL   @NUMASC
+       DATA PRNL05+33,5
+       MOV  @SRTIO4,@PGMPAB+2 Set VDP buffer address
+       CLR  @PGMPAB+6
+       BL   @SETDSR                     OPEN CATLOG_PGM FILE
+       DATA RWPAB1,PGMPAB,25,8,OPEN+INPIFR
+       JEQ  PRTCTF
+       BL   @GODSR                      READ IN RECORD 0 TO SET PAB
+       DATA RWPAB1,8,READ+INPIFR
+       JEQ  PRTCTF
+       MOV  @SAVPAB,@SRTSV1             Save CATLOG_PGM DSR pointers
+       MOV  @SAVENT,@SRTSV2
+       MOV  @SAVCRU,@SRTSV3
+       MOV  @SAVLEN,@SRTSV4
+       MOV  @SAVVER,@SRTSV5
+       LI   R0,FILBUF                   Save PRELD buffer
+       LI   R1,CATBUF
+       LI   R2,3072
+       BLWP @VMBW
+       MOV  @PRNON,R0
+       JEQ  PRTCT6
+       MOV  @NUMPGM,@PRTCT1   SETUP PRINTER PAGES
+       MOV  @NUMPGM,@PRTPT3   SETUP PRINTER PAGES
+       BL   @NEWPAG
+PRTCTB DATA >0000           <-- PRNFIL or PRNSRT
+PRTCT1 DATA 0,SRTRST           (SRTALL)or(SRTFOR)
+PRTCT6 CLR  R3
+       INC  R3
+       MOV  R3,R5
+       BL   @NUMASC
+       DATA PRNL05+27,5
+       LI   R15,VDPRD         SET VDP TO READ DATA
+       MOV  @NUMDSK,R12       SET POINTERS TO END
+       LI   R0,12
+       MPY  R12,R0
+       AI   R1,CATBUF
+       MOV  R1,@PRTCTA+2
+       MOV  @NUMDSK,R12       Get total amount of disks in memory.
+PTDSK4 DEC  R12               Check to see if at end of table?
+       JNC  PRTCT0            Yes, so goto PRINT CATALOG
+       MOVB @DSKSRT(R12),R6   Get next diskette record address
+       SRL  R6,8
+       MPY  @DEC26,R6
+       AI   R7,DSKBUF
+       MOV  @DSKCNT,R2        Check if DISK SEARCH active?
+       JEQ  PTDSK8            NO, so make this disk active!
+       LI   R5,10             Load R5 with max. diskname len
+       LI   R1,DSKSTR         Load R1 with DSKSTR address
+       MOV  R7,R0             Load R0 with diskname address
+PTDSK5 CLR  R4                Clear byte check
+PTDSK6 MOVB *R1+,R4           Get a SEARCH byte
+       CI   R4,>1F00          See if wildcard ?
+       JEQ  PTDSK7            If so,don't check for a match
+       CI   R4,>1E00          See if wildcard *
+       JEQ  PTDSK9            If so, goto suffix search mode
+       CB   R4,*R0            Compar SEARCH byte with filename
+       JNE  PTDSKB            No match, so make this one USED up!
+PTDSK7 INC  R0                Set pointer to next byte in diskname
+       DEC  R2                Sub 1 from SEARCH length for *
+       DEC  R5                See if any more diskname left
+       JNE  PTDSK6            If so, then get another byte
+PTDSK8 CLR  R4                WE GOT A MATCH so make this disk ready!
+       JMP  PTDSKC            Store the byte!
+PTDSK9 DEC  R2                Check if at end of SEARCH
+       JEQ  PTDSK8            Yes, so make this disk ready!
+       MOV  R7,R4             Get diskname address
+       AI   R4,10             Goto the end of it
+PTDSKA DEC  R4                Check for first non space char
+       CB   *R4,@SPACE        Is it a space?
+       JEQ  PTDSKA            Yes, so go back one more
+       S    R2,R4             Sub len of search left
+       INC  R4                Adjust pointer to next byte to check
+       C    R4,R0             See if enough of filename left
+       JLE  PTDSKB            Nope, so make this one USED up!
+       MOV  R4,R0             Set search to new position
+       MOV  R2,R5             Set length to suffix
+       JMP  PTDSK5            Go back to the search/match
+PTDSKB SETO R4                WE GOT A JUNKED so make this disk USED!
+PTDSKC MOVB R4,@BUF2(R12)     Store either the FREE or USED byte
+       JMP  PTDSK4            Go back and check another diskette!
+PRTCT0 BLWP @CLEAR            Clear Top menu bar
+       DATA SCREEN+84,32
+       BLWP @WRTSCR           Display "Printing Catalog to -----"
+       DATA PTSCR1
+       SETO @OLDKEY           Clear old key flag
+       LI   R0,SRTALL         Move SRTALL to FSTSRT location
+       LI   R1,FSTSRT
+MOVSRT MOV  *R0+,*R1+
+       CI   R0,SRTAL5
+       JLE  MOVSRT
+       JMP  CTSRT0            Sort setup done. Do the SORTING/SEARCHING

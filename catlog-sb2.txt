@@ -1,0 +1,688 @@
+****************************************************************
+* CATLOG-SB2  v1.01.04/11/89  DX Sub-Programs BL,BLWP's     #2 *
+****************************************************************
+*                                                              *
+* Source Published: 04/14/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1989 by Gary Bowser and Cecil Chin from O.P.A.   *
+*                                                              *
+* Credit Must Be Included When Using Source from DISKODEX 2001 *
+*                                                              *
+****************************************************************
+ 
+**********************************
+* NUMBER TO ASCII-HEXADECIMAL    *
+**********************************
+HEXASC MOV  *R11+,R0
+       MOV  *R11+,R1
+       MOVB *R0+,R2
+       SRL  R2,8
+HXASC1 MOVB *R0,R3
+       SRL  R3,12
+       MOVB @HEX(R3),*R1+
+       MOVB *R0+,R3
+       SLA  R3,4
+       SRL  R3,12
+       MOVB @HEX(R3),*R1+
+       DEC  R2
+       JNE  HXASC1
+       RT
+ 
+**********************************
+* ASCII-HEXADECIMAL TO NUMBER    *
+**********************************
+ASCHEX MOV  *R11+,R0
+       MOV  *R11+,R1
+       MOV  *R11+,R2
+       MOV  R11,@ASCHX2+2
+ASCHX1 BL   @ASCHXG
+       SLA  R3,4
+       MOV  R3,R4
+       BL   @ASCHXG
+       A    R3,R4
+       SWPB R4
+       MOVB R4,*R1+
+       DEC  R2
+       JNE  ASCHX1
+ASCHX2 B    @>0000
+ 
+ASCHXG MOVB *R0+,R3
+       SRL  R3,8
+       CI   R3,>3A
+       JL   ASCHXH
+       AI   R3,-7
+ASCHXH ANDI R3,>000F
+       RT
+ 
+**********************************
+* ASCII-DECIMAL STRING TO NUMBER *
+**********************************
+ASCNUM MOV  *R11+,R2
+       MOV  *R11+,R3
+       CLR  R4
+       JMP  ASCNM2
+ASCNM1 MPY  @DECTEN,R4
+       MOV  R5,R4
+ASCNM2 MOVB *R2+,R5
+       CB   R5,@SPACE
+       JEQ  ASCNM4
+       SB   @HEX30+1,R5
+       SRL  R5,8
+       CI   R5,0
+       JL   ASCNM3
+       CI   R5,9
+       JH   ASCNM3
+       A    R5,R4
+       DEC  R3
+       JNE  ASCNM1
+       JMP  ASCNM5
+ASCNM3 SETO R4
+       JMP  ASCNM5
+ASCNM4 DEC  R3
+       JNE  ASCNM2
+       MOV  R4,R5
+       CLR  R4
+       DIV  @DECTEN,R4
+ASCNM5 MOV  R4,R4
+       RT
+ 
+**********************************
+* Pre Load First Rec of each Disk*
+**********************************
+PRELD  MOV  R11,@PRELD3+2
+       LI   R0,RWBUF1
+       MOV  R0,@PGMPAB+2
+       CLR  @PGMPAB+6
+       BL   @SETDSR
+       DATA RWPAB1,PGMPAB,25,8,OPEN+INPIFR
+       JEQ  PRELD3
+       MOV  @NUMDSK,R12
+PRELD1 DEC  R12
+       JNC  PRELD2
+       MOVB @DSKSRT(R12),R0
+       SRL  R0,8
+       BL   @CALBUF
+       DATA 26,DSKBUF,0
+       MOV  R0,R1
+       MOV  @12(R1),@PGMPAB+6
+       BL   @SETDSR
+       DATA RWPAB1,PGMPAB,25,8,READ+INPIFR
+       JEQ  PRELD3
+       MOV  R12,R0
+       BL   @CALBUF
+       DATA 12,CATBUF,0
+       MOV  R0,R1
+       LI   R0,RWBUF1
+       DECT R2
+       BLWP @VMBR
+       A    R2,R1
+       BL   @PRETYP
+       JMP  PRELD1
+PRELD2 BL   @GODSR
+       DATA RWPAB1,8,CLOSE+INPIFR
+PRELD3 B    @>0000
+ 
+**********************************
+* Pre Load the TYPE from filename*
+**********************************
+PRETYP MOVB @SRTIO7+1,@VDPWA
+       MOVB @SRTIO7,@VDPWA
+       MOVB @VDPRD,R10
+       MOV  R10,R9
+       ANDI R10,>0800
+       SZCB R10,R9
+       SRL  R9,8
+       INC  R9
+       CI   R9,2
+       JNE  PREDAT
+       AI   R9,3
+PREDAT CI   R9,8
+       JL   PREFIX
+       AI   R9,-127
+PREFIX CI   R9,5
+       JLE  PREOK
+       CLR  R9
+PREOK  LI   R2,1
+       LI   R0,16
+       S    R9,R0
+       SRC  R2,0
+       MOV  R2,*R1
+       RT
+ 
+**********************************
+* Pre Sort Disk Name Table       *
+**********************************
+PRESRT MOV  R11,@PREST9+2
+       MOV  @NUMDSK,R12
+       CLR  R8
+       LI   R0,26
+       MPY  R12,R0
+       AI   R1,DSKBUF
+       MOV  R1,@PREST4+2
+       MOV  R12,R15
+PREST1 DEC  R12
+       JNC  PREST3
+       MOV  R12,R0
+       BL   @CALBUF
+       DATA 26,DSKBUF,0
+       MOV  R0,@PREST2
+       MOV  R12,R0
+       BL   @CALBUF
+       DATA 25,FILBUF
+PREST2 DATA 0
+       BLWP @VMBR
+       MOVB R8,@BUF2(R12)
+       JMP  PREST1
+PREST3 LI   R8,26
+       LI   R9,FFBUF
+PREST4 LI   R14,>0000
+       SETO R13
+       DEC  R15
+       MOV  @NUMDSK,R12
+PREST5 DEC  R12
+       JNC  PREST8
+       S    R8,R14
+       MOVB @BUF2(R12),R0
+       JLT  PREST5
+       MOV  R14,R0
+       MOV  R9,R1
+       LI   R2,10
+PREST6 CB   *R0+,*R1+
+       JH   PREST5
+       JL   PREST7
+       DEC  R2
+       JNE  PREST6
+       JMP  PREST5
+PREST7 MOV  R12,R13
+       MOV  R14,R9
+       JMP  PREST5
+PREST8 MOV  R13,R13
+       JLT  PREST9
+       MOVB @HEXAA,@BUF2(R13)
+       SWPB R13
+       MOVB R13,@DSKSRT(R15)
+       JMP  PREST3
+PREST9 B    @>0000
+ 
+**********************************
+* "INSERT DATA DISK" & CAL ROOM  *
+**********************************
+DISIDD MOV  R11,@DISDD2+2
+DISDD4 BLWP @WRTSCR           DISPLAY "PLEASE WAIT"
+       DATA PPWLIN
+       CLR  R3                CHECK IF "DATA DISK IS INSERTED"
+       MOV  @SAVDRV,R7
+       BL   @SECRW
+       DATA BUF2,DISDD1
+       LI   R0,DSKID
+       LI   R2,10
+DISDD3 C    *R0+,*R1+
+       JNE  DISDD1            NO, SO EXIT
+       DECT R2
+       JNE  DISDD3
+       BL   @GETFRE           YES, SO GET FREE SECTORS
+       MPY  @DEC05,R5         5 FILES PER SECTOR (RESULT IN R6)
+       MOV  R6,@DDROOM        STORE TOTAL FREE FILE SLOTS
+       LI   R3,1              GET, SECTOR 1
+       BL   @SECRW
+       DATA BUF1,DISDD1
+       LI   R4,BUF1
+DISDD5 MOV  *R4+,R3           GET NEXT FILENAME
+       JEQ  DISDD1            NO MORE, SO EXIT
+       BL   @SECRW            GET THE FILE HEADER
+       DATA BUF2,DISDD1
+       LI   R0,BUF2           CHECK IF "CATLOG_PGM"
+       LI   R1,PGMPAB+15
+       LI   R2,10
+DISDD6 CB   *R0+,*R1+
+       JNE  DISDD5            NOT IT, SO GET NEXT NAME
+       DEC  R2                CHECK NEXT BYTE
+       JNE  DISDD6
+       MOV  @BUF2+14,R0       GOT IT! CHECK FOR TOTAL ROOM FREE NOW!!!
+       MPY  @DEC05,R0         (5 FILES PER SECTOR) RESULT IS IN R1
+       S    @NUMPGM,R1        SUB FILES STORED FROM TOTAL SPACE
+       A    R1,@DDROOM        ADD JUNK PART OF _PGM TO TOTAL FREE
+DISDD2 B    @>0000
+DISDD1 BLWP @WRTSCR
+       DATA IDDLIN
+       BL   @SCAN
+       BLWP @CLEAR
+       DATA SCREEN+840,120
+       CB   @KEYVAL,@BACK
+       JNE  DISDD4
+       B    @MMENU
+ 
+**********************************
+* GETFRE = GET NUMBER OF FREE SEC*      RESULT IS IN R5
+**********************************
+GETFRE LI   R2,200
+       CLR  R5
+GETBYT MOV  @BUF2+54(R2),R1
+       JNE  CHKBYT
+       AI   R5,16
+       JMP  NXTBYT
+CHKBYT CI   R1,>FFFF
+       JEQ  NXTBYT
+       LI   R0,16
+NXTBIT SRL  R1,1
+       JOC  NXTUSE
+       INC  R5
+NXTUSE DEC  R0
+       JNE  NXTBIT
+NXTBYT DECT R2
+       JNE  GETBYT
+       CB   @BUF2+17,@QD80    Check for a DS/QD disk
+       JNE  STOFRE
+       CB   @BUF2+18,@QD80+1
+       JNE  STOFRE
+       SLA  R5,1              If so, times free by 2
+STOFRE RT
+**********************************
+* WRTSCR = Write to Screen       *
+**********************************
+WRTSCR DATA UTILWS,WTSCR1
+WTSCR1 MOV  *R14+,R9
+       MOV  *R9+,R8
+WTSCR2 MOV  *R9+,R0
+       JEQ  WTSCR4
+       BL   @VDPSTW
+       MOV  *R9+,R1
+WTSCR3 MOVB *R1+,R0
+       CB   R0,@FFBUF
+       JEQ  WTSCR2
+       MOVB R0,@VDPWD
+       JMP  WTSCR3
+WTSCR4 MOV  R8,@WTSCR5
+       JEQ  WTSCR7
+       BLWP @GPLLNK
+WTSCR5 DATA >0000
+       LIMI 2
+WTSCR6 MOVB @SNDNUM,R0
+       JNE  WTSCR6
+       LIMI 0
+WTSCR7 RTWP
+ 
+*********************************
+* CLEAR = Clear part of SCREEN  *
+*********************************
+CLEAR  DATA UTILWS,CLEAR1
+CLEAR1 MOV  *R14+,R0
+       BL   @VDPSTW
+       LI   R1,>2000
+       MOV  *R14+,R2
+CLEAR2 MOVB R1,@VDPWD
+       DEC  R2
+       JNE  CLEAR2
+       RTWP
+ 
+*********************************
+* VSBR = Video Single Byte Read *
+*********************************
+VSBR   DATA UTILWS,VSBR1
+VSBR1  BL   @VDPSRA
+       MOVB @VDPRD,@2(R13)
+       RTWP
+ 
+*********************************
+* VSBW = Video Single Byte Write*
+*********************************
+VSBW   DATA UTILWS,VSBW1
+VSBW1  BL   @VDPSWA
+       MOVB R1,@VDPWD
+       RTWP
+ 
+*********************************
+* VMBR = Video Multi Byte Read  *
+*********************************
+VMBR   DATA UTILWS,VMBR1
+VMBR1  BL   @VDPSRA
+VMBR2  MOVB @VDPRD,*R1+
+       DEC  R2
+       JNE  VMBR2
+       RTWP
+ 
+*********************************
+* VMBW = Video Multi Byte Write *
+*********************************
+VMBW   DATA UTILWS,VMBW1
+VMBW1  BL   @VDPSWA
+VMBW2  MOVB *R1+,@VDPWD
+       DEC  R2
+       JNE  VMBW2
+       RTWP
+ 
+*********************************
+* VWTR = Video Write to Register*
+*********************************
+VWTR   DATA UTILWS,VWTR1
+VWTR1  BL   @VDPSWR
+       RTWP
+ 
+VDPSWR MOV  *R13,R0           USE ONLY BY VIDEO BLWP'S
+       ORI  R0,>8000
+       JMP  VDPGO
+VDPSWA MOV  *R13,R0
+VDPSTW ORI  R0,>4000
+       JMP  VDPGO
+VDPSRA MOV  *R13,R0
+VDPGO  MOVB @UTILWS+1,@VDPWA
+       MOVB R0,@VDPWA
+       MOV  @2(R13),R1
+       MOV  @4(R13),R2
+       RT
+ 
+**********************************
+* Wait/Scan/Execute MENU keys    *
+**********************************
+MSCAN  MOV  *R11+,@MSCAN2+2
+MSCAN1 BLWP @RSCAN            Wait for a key
+       JLT  MSCAN1
+MSCAN2 LI   R0,>0000          Load R0 with Key/Branch table
+       MOV  *R0+,R1           Load R1 with Key table
+MSCAN3 MOV  *R0+,R11          Get first Branch address for RT
+       JEQ  MSCAN1            If end of table exit
+       CB   *R1+,@KEYVAL      Check if key matchs table
+       JNE  MSCAN3            No it exit
+       RT                     Execute Menu option!
+ 
+*********************************
+* SCAN = Wait for a Key press   *
+*********************************
+SCAN   CLR  @STATUS
+SCAN1  BLWP @KSCAN
+       MOVB @STATUS,@STATUS
+       JEQ  SCAN1
+       RT
+ 
+*********************************
+* RSCAN = Auto-Repeat Key Scan  *
+*********************************
+RSCAN  DATA UTILWS,RSCAN0
+RSCAN0 CLR  R8
+RSCAN1 MOVB R8,@TIMER
+RSCAN2 CB   @TIMER,@TC1
+       JL   RSCAN3
+       INC  R7
+       INC  R8
+       C    R8,@TC2
+       JL   RSCAN1
+       SETO R2
+       JMP  RSCAN7
+RSCAN3 LIMI 2
+       LIMI 0
+       BL   @CSCAN
+       MOVB @STATUS,R2
+       JNE  RSCAN4
+       MOVB @KEYVAL,R2
+       JLT  RSCAN2
+       C    R7,@TC3
+       JL   RSCAN2
+       MOV  @TC3,R7
+       JMP  RSCAN5
+RSCAN4 CLR  R7
+RSCAN5 LI   R2,>A00
+RSCAN6 DEC  R2
+       JGT  RSCAN6
+       MOVB @KEYVAL,R2
+       JLT  RSCAN2
+       ANDI R2,>7F00
+       MOVB R2,@KEYVAL
+RSCAN7 SWPB R2
+       MOV  R2,R2
+       STST R15
+       RTWP
+ 
+*********************************
+* KSCAN = Keyboard SCAN         *
+*********************************
+KSCAN  DATA UTILWS,KSCAN1
+KSCAN1 BL   @CSCAN
+       RTWP
+ 
+CSCAN  LWPI GPLWS             USE ONLY BY KEY BLWP'S
+       MOV  R11,@CSCAN1+2
+       BL   @>000E
+CSCAN1 LI   R11,>0000
+       LWPI UTILWS
+       RT
+ 
+*********************************
+* MG'S GPLLNK                   *
+*********************************
+GPLWS  EQU  >83E0             GPL workspace
+GR4    EQU  GPLWS+8           GPL workspace R4
+GR6    EQU  GPLWS+12          GPL workspace R6
+STKPNT EQU  >8373             GPL Stack pointer
+LDGADD EQU  >60               Load & Execute GROM address entry point
+XTAB27 EQU  >200E             Low Mem XML table location 27
+GETSTK EQU  >166C
+GPLLNK DATA GLNKWS R7         Set up BLWP vectors
+       DATA GLINK1 R8
+RTNAD  DATA XMLRTN R9         Address where GPL XML returns to us
+GXMLAD DATA >176C  R10        GROM Address for GPL XML (0F 27 Opcode)
+       DATA >50    R11        Initialized to >50 where PURSTK address is
+GLNKWS EQU  $->18             GPLLNK's workspace of which only
+       BSS  >08    R12-R15    registers R7 through r15 are used
+GLINK1 MOV  *R11,@GR4         Put PURSTK Address into R4 of GPL WS
+       MOV  *R14+,@GR6        Put GPL Routine Address in R6 of GPL WS
+       MOV  @XTAB27,R12       Save the value at >200E
+       MOV  R9,@XTAB27        Put XMLRTN Address into >200E
+       CLR  @STATUS         * CLEAR GPL STATUS
+       LWPI GPLWS             Load GPL WS
+       BL   *R4               Save current Grom Address on stack
+       MOV  @GXMLAD,@>8302(R4) Push GPL XML A dd on stack for GPL RTurn
+       INCT @STKPNT           Adjust the stack pointer
+       B    @LDGADD           Execute our GPL Routine
+XMLRTN MOV  @GETSTK,R4        Get GETSTK pointer
+       BL   *R4               Restore GROM address off the stack
+       LWPI GLNKWS            Load our WS
+       MOV  R12,@XTAB27       Restore >200E
+       RTWP                   All Done - Return to Caller
+ 
+***************************************
+* OPA DSRLNK 100% FOR EVERYTHING NOW! *
+***************************************
+DSRLNK DATA DSRWS,DSR1
+DSR1   MOV  *R14+,R5
+       SZCB @SPACE,R15
+       MOV  @POINTR,R0
+       MOV  R0,R9
+       AI   R9,-8
+       BLWP @VSBR
+       MOVB R1,R3
+       SRL  R3,8
+       SETO R4
+       LI   R2,NAMBUF
+DLOOP1 INC  R0
+       INC  R4
+       C    R4,R3
+       JEQ  DJUMP1
+       BLWP @VSBR
+       MOVB R1,*R2+
+       CB   R1,@PERIOD
+       JNE  DLOOP1
+DJUMP1 MOV  R4,R4
+       JEQ  DJUMP6
+       CI   R4,7
+       JGT  DJUMP6
+       CLR  @CRULST
+       MOV  R4,@SCLEN
+       MOV  R4,@SAVLEN
+       INC  R4
+       A    R4,@POINTR
+       MOV  @POINTR,@SAVPAB
+       LWPI GPLWS
+       CLR  R1
+       LI   R12,>1200
+       JMP  DJMP2A
+DLOOP2 MOV  R12,R12
+       JEQ  DJUMP2
+       SBZ  0
+DJUMP2 AI   R12,>100
+       CLR  @CRULST
+       CI   R12,>1200
+       JEQ  DJUMP5
+       CI   R12,>2000
+       JNE  DJMP2A
+       LI   R12,>1000
+DJMP2A MOV  R12,@CRULST
+       SBO  0
+       LI   R2,>4000
+       CB   *R2,@HEXAA
+       JNE  DLOOP2
+       A    @5*2+DSRWS,R2
+       JMP  DJUMP3
+DLOOP3 MOV  @SADDR,R2
+       SBO  0
+DJUMP3 MOV  *R2,R2
+       JEQ  DLOOP2
+       MOV  R2,@SADDR
+       INCT R2
+       MOV  *R2+,R9
+       MOVB @SCLEN+1,R5
+       JEQ  DJUMP4
+       CB   R5,*R2+
+       JNE  DLOOP3
+       SRL  R5,8
+       LI   R6,NAMBUF
+DLOOP4 CB   *R6+,*R2+
+       JNE  DLOOP3
+       DEC  R5
+       JNE  DLOOP4
+DJUMP4 INC  R1
+       MOV  R1,@SAVVER
+       MOV  R9,@SAVENT
+       MOV  R12,@SAVCRU
+       BL   *R9
+       JMP  DLOOP3
+       SBZ  0
+       LWPI DSRWS
+       MOV  R9,R0
+       BLWP @VSBR
+       SRL  R1,13
+       JNE  DJUMP7
+       RTWP
+DJUMP5 LWPI DSRWS
+DJUMP6 CLR  R1
+DJUMP7 SWPB R1
+       MOVB R1,*R13
+       SOCB @SPACE,R15
+       RTWP
+ 
+*********************************
+* JIM's KEYBOARD CURSOR ENTERER *  VDP,CPU,OFFSET,LENGTH,BACK
+*********************************
+KB     DATA >8320,KB1A
+KB1A   MOV  *R14+,R0
+       MOV  *R14+,R1
+       MOVB *R14+,R3
+       MOVB *R14+,R2
+       MOV  *R14+,R10
+       SRL  R3,8
+       SRL  R2,8
+       BLWP @VMBW
+       A    R1,R3
+       MOV  R1,R4
+       A    R1,R2
+       DEC  R2
+       MOV  R2,R5
+       S    R0,R1
+       MOV  R1,R6
+       CLR  @7*2+UTILWS
+       CLR  @OLDKEY
+KB1    CLR  R9
+KB2    MOV  R3,R0
+       S    R6,R0
+       SETO R12
+       MOVB *R3,R12
+       ANDI R12,>7F7F
+KB3    SWPB R12
+       MOVB R12,R1
+       BLWP @VSBW
+KB5    BLWP @RSCAN
+       JLT  KB3
+       MOVB *R3,R1
+       ANDI R1,>7F00
+       BLWP @VSBW
+       CLR  R2
+       MOVB @KEYVAL,R2
+       ANDI R2,>7F00
+       CI   R2,>1000
+       JHE  KB9
+       SRL  R2,7
+       MOV  @KFT(R2),R11
+       MOV  R3,R2
+       RT
+KF1    LI   R2,>1F00
+       JMP  KB9A
+KFC    LI   R2,>1E00
+       JMP  KB9A
+KFF    MOV  R10,R10
+       JEQ  KB5
+       MOV  R10,R14
+       CLR  *R13
+       RTWP
+KF7    MOV  R4,R3
+       MOV  R3,R0
+       S    R6,R0
+       MOV  R3,R2
+KF2    LI   R1,>2000
+KF2A   BLWP @VSBW
+       INC  R0
+       MOVB R1,*R2+
+       C    R2,R5
+       JLE  KF2A
+       JMP  KB1
+KF3    C    R2,R5
+       JHE  KF2
+       MOVB @1(R2),R1
+       BLWP @VSBW
+       INC  R0
+       MOVB R1,*R2+
+       JMP  KF3
+KF4    SETO R9
+       JMP  KB2
+KFB    AI   R3,-39
+KF8    DEC  R3
+       C    R3,R4
+       JHE  KB1
+       JMP  KF9A
+KFA    AI   R3,39
+KF9    INC  R3
+       C    R3,R5
+       JLE  KB1
+KF9A   MOV  R2,R3
+       JMP  KB1
+KFE    MOV  R4,R3
+       JMP  KB1
+KB9    CI   R2,>2000
+       JL   KB5
+KB9A   MOVB R2,*R3
+       C    R3,R5
+       JHE  KBA
+       INC  R3
+       ABS  R9
+       JEQ  KBA
+       MOV  R3,R1
+       MOV  R5,R2
+       S    R3,R2
+       INC  R2
+       BLWP @VMBR
+       DEC  R1
+       INC  R2
+       BLWP @VMBW
+       JMP  KB2
+KBA    MOVB R2,R1
+       BLWP @VSBW
+       JMP  KB1
+KFD    CB   *R5,@KF2+2
+       JNE  KFDA
+       DEC  R5
+       C    R5,R4
+       JHE  KFD
+KFDA   INC  R5
+       S    R4,R5
+       MOV  R5,*R13
+       RTWP
+KFT    DATA KB5,KF1,KF2,KF3,KF4,KB5,KB5,KF7  ,?,CLR,DEL,INS,Q,REDO,ERA
+       DATA KF8,KF9,KFA,KFB,KFC,KFD,KFE,KFF L,R,D,U,*,ENTER,BEGIN,BACK

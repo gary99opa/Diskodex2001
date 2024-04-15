@@ -1,0 +1,299 @@
+****************************************************************
+* RDSKU-S     v1.01.04/11/89  XB UTILS TO READ DSK-U BY O.P.A. *
+****************************************************************
+*                                                              *
+* Source Published: 04/14/2024 garyopa.com / ti99.atariage.com *
+*                                                              *
+* Copyrighted 1989 by Gary Bowser from Oasis Pensive Abacutors *
+*                                                              *
+* Credit Must Be Included When Using Any These Utilities Below *
+*                                                              *
+****************************************************************
+ 
+ 
+**************************************************************************
+* SUBROUTINES TO READ A DISK CATALOG IN DSKU v4.1 FORMAT                 *
+*                                                                        *
+*  CALL LINK("OPEN",N$,D,S,F,D$)                                         *
+*                   ^  ^ ^ ^ ^                                           *
+*                   |  | | | |                                           *
+*                   |  | | | Date of Disk                                *
+*                   |  | | Free Sectors  (to get Used do S-F)            *
+*                   |  | Total Sectors                                   *
+*                   |  Drive # 1-9, 0 if error (INPUTED)                 *
+*                   Disk Name                                            *
+*                                                                        *
+*  CALL LINK("FILE",F$,T,S,L,C$)          > CODE = FILE TYPE             *
+*                   ^  ^ ^ ^ ^            |  0   = End of Disk or error  *
+*                   |  | | | |            |  1   = DIS/FIX               *
+*                   |  | | | Comments     |  2   = DIS/VAR               *
+*                   |  | | Record Length  |  3   = INT/FIX               *
+*                   |  | Total sectors    |  4   = INT/VAR               *
+*                   |  Type 1 to 5 >------^  5   = PROGRAM               *
+*                   File Name                if - then file is protected *
+**************************************************************************
+ 
+       TITL 'RDSKU by Gary Bowser, PUBLIC-DOMAIN'
+       DEF  OPEN,FILE
+CIF    EQU  >20
+XBRT   EQU  >6A
+CFI    EQU  >12B8
+VMBW   EQU  >2024
+VMBR   EQU  >202C
+VSBW   EQU  >2020
+VSBR   EQU  >2028
+NUMREF EQU  >200C
+NUMASG EQU  >2008
+STRREF EQU  >2014
+STRASG EQU  >2010
+XMLLNK EQU  >2018
+FAC    EQU  >834A        If error cont. 0, no error cont. sector #
+DRVRW  EQU  >834C        >834C cont. drive #, >834D 1 to read/0 to write
+SECTNO EQU  >8350        Cont. sector #
+VDPADR EQU  >834E        Cont. VDP Buffer adr.
+BUFADR EQU  >3EF5        VDP Buffer adr.
+PABADR EQU  >3EEF        PAB Adr.
+POINTR EQU  >8356
+GPLST  EQU  >837C
+ 
+OPEN   LWPI WSPACE
+       CLR  R0               Get Drive #
+       LI   R1,2
+       BLWP @NUMREF
+       BLWP @XMLLNK
+       DATA CFI
+       CLR  R7               Clear drive # and Read flag
+       MOVB @FAC+1,R7        Store in MSByte of R7
+       JEQ  RTOPEN           Exit if Drive # 0
+       INC  R7               Make LSByte  >01
+       CLR  R3               Read Sector 0
+       BL   @SECRW
+       DATA BUF2
+       INC  R3               Read Sector 1
+       BL   @SECRW
+       DATA BUF1
+       MOV  R1,R4            Set R4 to BUF1 for FILE link
+       BL   @SENSTR          Send DISKNAME to N$
+       DATA 1,BUF2
+       BL   @SENSTR          Send DATE to D$
+       DATA 5,BUF2+32
+       MOV  @BUF2+10,R5      Get size of disk
+       DECT R5               Sub 2 for disk headers
+       BL   @SENNUM          Send SIZE to S
+       DATA 3
+       LI   R2,200           Get number of free sectors
+       CLR  R5
+GETBYT MOV  @BUF2+54(R2),R1
+       JNE  CHKBYT
+       AI   R5,16
+       JMP  NXTBYT
+CHKBYT CI   R1,>FFFF
+       JEQ  NXTBYT
+       LI   R0,16
+NXTBIT SRL  R1,1
+       JOC  NXTUSE
+       INC  R5
+NXTUSE DEC  R0
+       JNE  NXTBIT
+NXTBYT DECT R2
+       JNE  GETBYT
+       CB   @BUF2+17,@QD80   Check for a DS/QD disk
+       JNE  SENFRE
+       CB   @BUF2+18,@QD80+1
+       JNE  SENFRE
+       SLA  R5,1             If so, times FREE by 2
+SENFRE BL   @SENNUM          Send FREE to F
+       DATA 4
+RTOPEN B    @BASIC           Return to XB
+ 
+FILE   LWPI WSPACE
+       MOV  R7,R7            Check to set if OPEN was done
+       JEQ  DSKEND
+       MOV  *R4+,R3          Get next sector #
+       JEQ  DSKEND           Exit if end
+       BL   @SECRW           Read fileheader
+       DATA BUF2
+       BL   @SENSTR          Send FILENAME to F$
+       DATA 1,BUF2
+       BL   @SENSTR          Send COMMENT to C$
+       DATA 5,BUF2+220
+       MOVB @BUF2+12,R6      Following gets filetype 1-5
+       MOV  R6,R5            |
+       ANDI R6,>0800         |
+       SZCB R6,R5            |
+       SRL  R5,8             |
+       INC  R5               |
+       CI   R5,2             |
+       JNE  TYPDAT           |
+       AI   R5,3             |
+TYPDAT CI   R5,8             |
+       JL   TYPFIX           |
+       AI   R5,>FF81         |
+TYPFIX MOV  R6,R6            |
+       JEQ  POSNUM           |
+       NEG  R5               |
+POSNUM BL   @SENNUM          Send TYPE to T
+       DATA 2
+       MOV  @BUF2+14,R5      Get size
+       MOV  R5,R6
+       INC  R5               Add 1 for header
+       BL   @SENNUM          Send SIZE to S
+       DATA 3
+       MOVB @BUF2+17,R5      Get length
+       SRL  R5,8
+       JNE  SENLEN           No program so jump
+       MOVB @BUF2+16,R6      Get length of program
+       JEQ  EOFOS
+       DEC  R6
+EOFOS  SWPB R6
+       MOV  R6,R5            Send program length
+SENLEN BL   @SENNUM          Send LENGTH to L
+       DATA 4
+BASIC  LWPI >83E0            Return to XB
+       B    @XBRT
+DSKEND CLR  R7               Error or End of Disk (clear flag)
+       CLR  R5               Send a 0 to TYPE for FILE or DRIVE for OPEN
+       BL   @SENNUM
+       DATA 2
+       JMP  BASIC            Return to XB
+SECRW  LI   R0,PABADR        READ A SECTOR
+       LI   R1,PAB
+       LI   R2,2
+       BLWP @VMBW
+       MOV  R0,@POINTR
+       MOV  R3,@SECTNO
+       MOV  R7,@DRVRW
+       LI   R0,BUFADR
+       MOV  R0,@VDPADR
+       BLWP @DSRLNK
+       DATA >A
+       MOVB @SECTNO,@SECTNO
+       JNE  DSKEND           Error return to XB
+       MOV  @CLR,@GPLST
+       LI   R0,BUFADR
+       MOV  *R11+,R1
+       LI   R2,256
+       BLWP @VMBR
+       RT
+SENNUM MOV  R5,@FAC          Send number to XB
+       MOV  @CLR,@GPLST
+       BLWP @XMLLNK
+       DATA CIF
+       CLR  R0
+       MOV  *R11+,R1
+       BLWP @NUMASG
+       RT
+SENSTR LI   R2,STRBUF        Send string to XB
+       MOV  *R11+,R1
+       MOV  *R11+,R0
+       CLR  R5
+       CLR  R6
+STRNXT MOVB *R0+,R5
+       CI   R5,>2000
+       JL   STREND
+       INC  R6
+       MOVB R5,@STRBUF(R6)
+       JMP  STRNXT
+STREND SWPB R6
+       MOVB R6,*R2
+       JNE  STRPAS
+       LI   R5,>0120
+       MOV  R5,*R2
+STRPAS CLR  R0
+       BLWP @STRASG
+       RT
+CLR    DATA >0000            Use for clearing GPL Status
+PAB    DATA >0110            Read/Write Sector Pab
+QD80   DATA >5002            Use for checking a DS/QD disk
+BUF1   BSS  256              Buffer for Sector 1
+BUF2   BSS  256              Buffer for Headers and Sector 0
+WSPACE BSS  14      R0-R6
+       DATA >0000   R7       Drive # and Read flag
+       BSS  16      R8-R15
+STRBUF BSS  36               Buffer for Strings
+ 
+********************************************************************************
+* DSR/GPLLNK - Universal DSRLNK & GPLLNK by MG for 32K or more.   06/21/85
+* This routine will work with any GROM library slot since it is indexed
+* off of R13 in the GPLWS. This code does not require a module to be
+* plugged into the GROM port so it will work with the Editor/Assembler,
+* Mini-Memory, Extended Basic, the Myarc CALL LR("DSKx.xxx"") or the
+* Corcomp Disk Manager Loaders. It save and restores the current GROM
+* Address in case you want to return to the loading module. Uses console
+* GROM 0's GPLDSR code,and will handle all (>A)'s and also CS1,CS2.
+GPLWS  EQU  >83E0        GPL workspace
+GR4    EQU  GPLWS+8      GPL workspace R4
+GR6    EQU  GPLWS+12     GPL workspace R6
+STKPNT EQU  >8373        GPL Stack pointer
+LDGADD EQU  >60          Load & Execute GROM address entry point
+XTAB27 EQU  >200E        Low Mem XML table location 27
+GETSTK EQU  >166C
+GPLLNK DATA GLNKWS R7    Set up BLWP vectors
+       DATA GLINK1 R8
+RTNAD  DATA XMLRTN R9    Address where GPL XML returns to us
+GXMLAD DATA >176C  R10   GROM Address for GPL XML (0F 27 Opcode)
+       DATA >50    R11   Initialized to >50 where PURSTK address resides
+GLNKWS EQU  $->18        GPLLNK's workspace of which only
+       BSS  >08    R12-R15 registers R7 through r15 are used
+GLINK1 MOV  *R11,@GR4    Put PURSTK Address into R4 of GPL WS
+       MOV  *R14+,@GR6   Put GPL Routine Address in R6 of GPL WS
+       MOV  @XTAB27,R12  Save the value at >200E
+       MOV  R9,@XTAB27   Put XMLRTN Address into >200E
+       MOV  @CLR,@GPLST  CLEAR GPL STATUS
+       LWPI GPLWS        Load GPL WS
+       BL   *R4          Save current Grom Address on stack
+       MOV  @GXMLAD,@>8302(R4) Push GPL XML A dd on stack for GPL RTurn
+       INCT @STKPNT      Adjust the stack pointer
+       B    @LDGADD      Execute our GPL Routine
+XMLRTN MOV  @GETSTK,R4   Get GETSTK pointer
+       BL   *R4          Restore GROM address off the stack
+       LWPI GLNKWS       Load our WS
+       MOV  R12,@XTAB27  Restore >200E
+       RTWP              All Done - Return to Caller
+PUTSTK EQU  >50          Push GROM Add to stack pointer
+TYPE   EQU  >836D        DSRLNK Type byte for GPL DSRLNK
+NAMLEN EQU  >8356        Device name length pointer in VDP PAB
+VWA    EQU  >8C02        VDP Write Address location
+VRD    EQU  >8800        VDP Read Data byte location
+GR4LB  EQU  >83E9        GPL Workspace R4 Lower byte
+GSTAT  EQU  >837C        GPL Status byte location
+DSRLNK DATA DSRWS,DLINK1      Set BLWP Vectors
+DSRWS  EQU  $                 Start of DSRLNK workspace
+DR3LB  EQU  $+7               R3 lower byte of DSRLNK workspace
+DLINK1 MOV  R12,R12      R0   Have we already looked up the LINK address?
+       JNE  DLINK3       R1   YES! Skip look up routine
+       LWPI GPLWS        R2,R3 Else load GPL workspace
+       MOV  @PUTSTK,R4   R4,R5 Store current GROM address on the stack
+       BL   *R4          R6
+       LI   R4,>11       R7,R8 Load R4 with address of LINK routine vector
+       MOVB R4,@>402(R13)      Set up GROM with address for vector
+       JMP  DLINK2       R11   Jump around R12-R15
+       DATA 0            R12   Contains >2000 flag when set
+       DATA 0,0,0        R13-R15 Contains WS,PC & ST for RTWP
+DLINK2 MOVB @GR4LB,@>402(R13)  Finish setting up GROM address
+       MOV  @GETSTK,R5         Take some time & set up GETSTK pointer
+       MOVB *R13,@DSRAD1       Get the GPL DSR LINK vector
+       INCT @DSRADD            Adjust it to get past GPL FETCH instruction
+       BL   *R5                Restore the GROM Address off the stack
+       LWPI DSRWS              Reload DSRLNK workspace
+       LI   R12,>2000          Set flag to signify DSRLNK address is set
+DLINK3 INC  R14                Adjust R14 to point to Callers DSR Type byte
+       MOVB *R14+,@TYPE        Move it into >836D for GPL DSRLNK
+       MOV  @NAMLEN,R3         Save VDP address of Name Length
+       AI   R3,-8              Adjust it to point to PAB Flag byte
+       BLWP @GPLLNK            Execute DSR LINK
+DSRADD BYTE >03                High byte of GPL DSRLNK address
+DSRAD1 BYTE >00                Lower byte of GPL DSRLNK address
+       MOVB @DR3LB,@VWA        Set up LSB of VDP Add for Error Flag
+       MOVB R3,@VWA            Set up MSB of VDP Add for Error Flag
+       SZCB R12,R15            Clear EQ bit for Error Report
+       MOVB @VRD,R3            Get PAB Error Flag
+       SRL  R3,5               Adjust it to 0-7 error code
+       MOVB R3,*R13            Put it into Callers R0 (msb)
+       JNE  SETEQ              If its not zero set EQ bit
+       COC  @GSTAT,R12         Else test CND bit for Link Error (00)
+       JNE  DSREND             No Error Just return
+SETEQ  SOCB R12,R15            Error so set Callers EQ bit
+DSREND RTWP                    All Done - Return to Caller
+********************************************************************************
+       END
